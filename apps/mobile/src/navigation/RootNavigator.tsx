@@ -40,6 +40,7 @@ import * as accountApi from '../features/account/account-api';
 import { useReferenceStore } from '../features/household/reference-store';
 import { PlannedEntryFormScreen } from '../features/planning/PlannedEntryFormScreen';
 import { PlannedEntryDetailScreen } from '../features/planning/PlannedEntryDetailScreen';
+import { SettlementScreen } from '../features/planning/SettlementScreen';
 import { TransactionDetailScreen } from '../features/transactions/TransactionDetailScreen';
 import { TransferScreen } from '../features/transactions/TransferScreen';
 import { PhasePlaceholder } from '../components/PhasePlaceholder';
@@ -310,11 +311,11 @@ function AppFlow(): React.JSX.Element {
       </AppStack.Screen>
 
       <AppStack.Screen name="DarBaixa">
-        {() => (
-          <PhasePlaceholder
-            title="Dar baixa"
-            phase="Fase 5 — Baixas"
-            screenshot="design/screenshots/1e-baixa-parcial.png"
+        {({ navigation, route }) => (
+          <SettlementScreen
+            entry={route.params.entry}
+            onBack={() => navigation.goBack()}
+            onSettled={() => navigation.goBack()}
           />
         )}
       </AppStack.Screen>
