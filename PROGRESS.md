@@ -2,8 +2,8 @@
 
 ## Status geral
 
-- Fase atual: **Fase 5 — Baixas (a iniciar)**
-- Fases concluídas: **0, 1, 2, 3, 4**
+- Fase atual: **Fase 8 — Experiência rápida (a iniciar)**
+- Fases concluídas: **0, 1, 2, 3, 4, 5, 6, 7**
 - Última atualização: 2026-08-06
 - Responsável: Claude Code
 - Repositório: https://github.com/LucBast/Primte-Wallet (branch `main`)
