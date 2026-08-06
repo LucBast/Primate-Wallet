@@ -18,9 +18,9 @@ coberto por teste (`apps/mobile/__tests__/`): tokens byte a byte iguais ao desig
 Manrope no bundle iOS e Android, copy dos blocos, valores exatos da BottomNav.
 
 **Nenhuma tela pode ser marcada como concluída antes desse gate.** Telas implementadas
-e aguardando o gate: 6a (Login), 3a (Família), 3b (Permissões), 3d (Atividade),
-6b (Convite), 2a (Contas), 2b (Nova conta), 2c (Detalhe da conta), 2d (Ajuste de
-saldo), 1d (Planejamento), 1g (Movimentações).
+e aguardando o gate: 1b, 1d, 1e, 1f, 1g, 2a, 2b, 2c, 2d, 2e, 3a, 3b, 3d, 4a–4d, 6a, 6b,
+além das telas sem screenshot (criação de família, convite de membro, sessões,
+categorias, transferência, detalhe de movimentação e de conta prevista).
 
 Divergências já identificadas na leitura dos screenshots, a resolver no gate:
 
@@ -30,7 +30,7 @@ Divergências já identificadas na leitura dos screenshots, a resolver no gate:
    em container `brandSoft`.
 3. 6a — o título "Family Finance" parece maior no screenshot que `type.pageTitle` (22).
 4. 3a — o screenshot mostra "Administradora"; o app usa "Administrador", o rótulo do
-   PRD, porque o modelo não guarda gênero (D-040 em docs/21-DECISIONS.md).
+   PRD, porque o modelo não guarda gênero.
 
 ## Concluído
 
@@ -38,86 +38,94 @@ Divergências já identificadas na leitura dos screenshots, a resolver no gate:
 
 Monorepo npm workspaces, TypeScript strict, ESLint/Prettier com os gates do CLAUDE.md
 (literal de cor proibido fora dos tokens, kits de UI bloqueados), CI com migrações,
-RLS e scan de segredos. `packages/domain` (dinheiro em centavos, rateio exato,
-parcelamento, datas no fuso da família), `packages/validation`, `packages/api-contracts`.
-Backend Fastify com config validada no startup, logs com request_id e autenticação
-com sessões revogáveis. App RN CLI com tokens verbatim, Manrope no bundle, BottomNav
-e tela de login.
+RLS e scan de segredos. `packages/domain`, `packages/validation`,
+`packages/api-contracts`. Backend Fastify com config validada no startup, logs com
+request_id e autenticação com sessões revogáveis. App RN CLI com tokens verbatim,
+Manrope no bundle, BottomNav e tela de login.
 
 ### Fase 1 — Família e segurança
 
 `households`, `household_members`, `invitations`. RLS por papel via helpers
-SECURITY DEFINER (`app.is_member`, `app.is_admin`, `app.is_owner`, `app.can_operate`).
-Convite nominal por e-mail com token em hash, aceite idempotente, transferência de
-propriedade, `expectedVersion` nos membros e auditoria legível por Proprietário/Admin.
-Telas 3a, 3b, 3d, 6b, criação de família, convite e Dispositivos e sessões.
+SECURITY DEFINER. Convite nominal por e-mail com token em hash, aceite idempotente,
+transferência de propriedade, `expectedVersion` nos membros e auditoria legível por
+Proprietário/Admin. Telas 3a, 3b, 3d, 6b e afins.
 
 ### Fase 2 — Contas e categorias
 
-`accounts` (contas e cartões na MESMA tabela, com constraints que exigem e proíbem
-campos de cartão), `account_member_permissions`, `categories` (um nível de
-subcategoria), `counterparties`, `transactions`. Visibilidade por RLS
-(`app.can_view_account`, `app.can_transact_account`) — conta restrita não chega ao
-cliente. Saldo derivado por `app.account_balance`; cartão devolve dívida e limite
-disponível. Ajuste de saldo com motivo, idempotência e `expectedVersion`.
-Telas 2a, 2b, 2c, 2d e categorias.
+`accounts` (contas e cartões na MESMA tabela), `account_member_permissions`,
+`categories`, `counterparties`, `transactions`. Visibilidade por RLS — conta restrita
+não chega ao cliente. Saldo derivado por `app.account_balance`. Ajuste de saldo com
+motivo, idempotência e `expectedVersion`. Telas 2a–2d e categorias.
 
 ### Fase 3 — Planejamento
 
 `planned_entries`, `settlements`, `installment_groups`, `recurrence_rules`,
-`attachments`. Saldo em aberto e status derivados por função SQL; "vencido" calculado
-com o fuso da família e nunca persistido. Geração de recorrência pura em `@ff/domain`
-(mesmo código no servidor e na prévia do app). Parcelamento com centavos na última
-parcela. Anexos com caminho escopado pelo `household_id` e MIME restrito.
-Telas 1d, formulário de conta prevista e detalhe.
+`attachments`. Saldo em aberto e status derivados por função SQL; "vencido" com o fuso
+da família, nunca persistido. Recorrência pura em `@ff/domain`. Parcelamento com
+centavos na última parcela. Anexos escopados por família. Tela 1d e formulários.
 
 ### Fase 4 — Movimentações
 
-Despesa, receita, transferência, rateio e estorno. Idempotência que devolve a MESMA
-movimentação em vez de erro (chave no corpo ou no cabeçalho `Idempotency-Key`).
-Despesa em cartão vira `CARD_PURCHASE` e não toca a conta bancária. Transferência
-atômica, com tarifa como despesa separada. Estorno cria `REVERSAL`, preserva a
-original e bloqueia duplicidade. Busca por texto ou valor exato, filtros e paginação
-por cursor. Telas 1g, detalhe da movimentação e transferência.
+Despesa, receita, transferência, rateio e estorno. Idempotência devolve a MESMA
+movimentação. Despesa em cartão vira `CARD_PURCHASE`. Transferência atômica com tarifa
+separada. Estorno preserva a original e bloqueia duplicidade. Busca, filtros e
+paginação por cursor. Tela 1g e detalhes.
+
+### Fase 5 — Baixas
+
+Baixa atômica e SERIALIZABLE, com trava na conta prevista, revalidação do saldo dentro
+da transação e `expectedVersion`. Principal nunca ultrapassa o saldo em aberto; juros e
+multa por fora, desconto reduz só o que sai da conta. Concorrência testada com duas
+baixas simultâneas — só uma passa. Estorno reabre a conta prevista. Tela 1e.
+
+### Fase 6 — Cartões
+
+`card_statements`, `card_statement_items`, `card_statement_payments`, com total, pago e
+status derivados. Ciclos de fatura em `@ff/domain` a partir do dia de fechamento e de
+vencimento. Compra à vista e parcelada com cada parcela na fatura certa. Pagamento de
+fatura NÃO cria despesa e reabre no estorno. Reembolso abate a dívida. Telas 1f e 2e.
+
+### Fase 7 — Dashboard e relatórios
+
+Competência e caixa separados na origem: em competência a compra no cartão é despesa e
+o pagamento da fatura não; em caixa é o contrário. Dashboard com saldo consolidado,
+previsto × realizado, vencidas e próximos compromissos. Relatórios por categoria, por
+membro (somando pelos rateios), por conta e evolução. Exportação CSV auditada, negada a
+filho supervisionado. Telas 1b e 4a–4d.
 
 ## Em andamento
 
-- Nada. Fase 4 fechada e enviada ao repositório.
+- Nada. Fase 7 fechada e enviada ao repositório.
 
 ## Pendente
 
-- **Fase 5 — Baixas**: total, parcial, múltiplas, juros/multa/desconto, concorrência,
-  idempotência, estorno de baixa, reconciliação. Tela 1e.
-- **Fase 6 — Cartões**: compras, parcelas, ciclos, faturas, fechamento, pagamento
-  parcial/total, reembolso, limite. Telas 1f e 2e.
-- **Fase 7 — Dashboard e relatórios**: competência × caixa, previsto × realizado, por
-  categoria/membro/conta/cartão, evolução, exportações. Telas 1b, 4a–4d, 5b.
-- **Fase 8 — Experiência rápida**: botão central, formulários rápidos, sugestões,
-  deep links, atalhos, notificações. Telas 1c, 6c, 6d.
+- **Fase 8 — Experiência rápida**: lançamento rápido pelo botão central, sugestões,
+  recentes, deep links, atalhos do ícone, notificações. Telas 1c, 6c, 6d.
 - **Fase 9 — Supervisão familiar**: aprovações, limites, visibilidade, fluxos de filho.
   Tela 3c.
 - **Fase 10 — Offline e sincronização**: WatermelonDB, outbox, conflitos, feedback.
 - **Fase 11 — Qualidade e hardening**: cobertura, E2E, acessibilidade, performance,
-  segurança, recovery, runbooks.
-- **Fase 12 — Publicação**: documentos legais, store assets, beta, release.
+  segurança, device testing, recovery, runbooks.
+- **Fase 12 — Publicação**: documentos legais, store assets, beta, release, smoke tests.
 
 ## Testes falhando
 
-- Nenhum. Total: **195 testes** (domain 53, validation 7, api-contracts 5, api 111,
+- Nenhum. Total: **241 testes** (domain 62, validation 7, api-contracts 5, api 147,
   mobile 19).
 
 ## Migrações aplicadas
 
-`0001_foundation` … `0012_attachments` — aplicadas no Postgres de desenvolvimento
+`0001_foundation` … `0013_card_statements` — aplicadas no Postgres de desenvolvimento
 (`localhost:5435`) e exercitadas no CI, inclusive re-execução para provar idempotência.
 
 ## Decisões recentes
 
-Registradas em `docs/21-DECISIONS.md` (D-001 a D-039, mais as de fase). Destaques:
-três roles de banco com o de runtime sem `BYPASSRLS`; valores da especificação que não
-existem nos tokens ficam em `spec-values.ts` com a citação de origem; `isoDateSchema`
-anota o retorno do `refine` como `boolean` de propósito, para o TypeScript não inferir
-um predicado de tipo e vazar a marca `IsoDate` para todos os contratos.
+Registradas em `docs/21-DECISIONS.md`. Destaques: três roles de banco com o de runtime
+sem `BYPASSRLS`; valores da especificação que não existem nos tokens ficam em
+`spec-values.ts` com a citação de origem; `isoDateSchema` anota o retorno do `refine`
+como `boolean` para o TypeScript não inferir um predicado de tipo e vazar a marca
+`IsoDate` para todos os contratos; o ciclo de fatura vai do dia seguinte ao fechamento
+anterior até o fechamento, inclusive.
 
 ## Bloqueios
 
@@ -126,24 +134,22 @@ um predicado de tipo e vazar a marca `IsoDate` para todos os contratos.
    `npm run --workspace @ff/api dev`, `npm run --workspace @ff/mobile start` e
    `npm run --workspace @ff/mobile android` (ou `ios`).
 2. **Provedor de e-mail transacional** — segredo externo. A porta `Mailer` está pronta;
-   em desenvolvimento o link vai para o log, o que permite testar cadastro, convite e
-   magic link ponta a ponta.
-3. **Bucket S3-compatível para anexos** — o registro do anexo e o caminho escopado já
-   existem; falta o provedor de storage e a URL assinada.
-4. **Contas de loja, DSN do Sentry** — Fases 11 e 12.
+   em desenvolvimento o link vai para o log.
+3. **Bucket S3-compatível para anexos** — registro e caminho escopado prontos; falta o
+   provedor e a URL assinada.
+4. **Contas de loja, DSN do Sentry, FCM/APNs** — Fases 11 e 12.
 
 ## Próxima ação exata
 
-Iniciar a **Fase 5 — Baixas**:
+Iniciar a **Fase 8 — Experiência rápida**:
 
-1. Serviço `settlePlannedEntry` em `apps/api/src/modules/planning/`: transação
-   SERIALIZABLE, `expectedVersion`, principal ≤ saldo em aberto
-   (`OUTSTANDING_AMOUNT_EXCEEDED`), juros/multa/desconto separados, criação da
-   movimentação vinculada e recálculo do status.
-2. Estorno de baixa: reabre a conta prevista (SETTLED → PARTIAL/OPEN), exige motivo,
-   bloqueia estorno duplicado.
-3. Testes obrigatórios de docs/13 §2: baixa parcial, baixa completa após parcial,
-   excesso, concorrência (duas baixas simultâneas), idempotência.
-4. Tela 1e (`design/screenshots/1e-baixa-parcial.png`) com MoneyInput 28, os três
-   campos de encargos, o banner "Total que sai da conta", o histórico de baixas e o
-   CTA "Confirmar baixa de R$ X".
+1. Tela 1c (`design/screenshots/1c-lancamento-rapido.png`): BottomSheet com segmented
+   ↓ Despesa | ↑ Receita | Mais ▾, MoneyInput 44 com teclado numérico interno,
+   SelectorChips de conta/categoria/membro/data, sugestões recentes, "Salvar" e
+   "Salvar e lançar outra". Meta: despesa simples em ≤ 10 s.
+2. Sugestões e recentes: endpoint que devolve os últimos favorecidos, categorias e
+   contas usados, para pré-preencher o formulário.
+3. Deep links e atalhos do ícone (telas 6c): `familyfinance://quick/despesa` etc.,
+   com retomada de intenção após login.
+4. Notificações (tela 6d): tabela `notifications`, preferências por tipo, central no
+   app e jobs de vencimento/fatura no fuso da família.
