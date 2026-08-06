@@ -39,6 +39,8 @@ export type AppStackParamList = {
   DarBaixa: { entry: PlannedEntry };
   DetalheMovimentacao: { transaction: Transaction };
   Transferencia: undefined;
+  Fatura: { card: Account };
+  CompraCartao: undefined;
   /** Aceite de convite chegando por deep link, já com sessão. */
   Convite: { token: string };
   /** Destinos ainda não entregues; some conforme as fases avançam. */

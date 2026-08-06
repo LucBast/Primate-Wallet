@@ -43,6 +43,8 @@ import { PlannedEntryDetailScreen } from '../features/planning/PlannedEntryDetai
 import { SettlementScreen } from '../features/planning/SettlementScreen';
 import { TransactionDetailScreen } from '../features/transactions/TransactionDetailScreen';
 import { TransferScreen } from '../features/transactions/TransferScreen';
+import { CardStatementScreen } from '../features/card/CardStatementScreen';
+import { CardPurchaseScreen } from '../features/card/CardPurchaseScreen';
 import { PhasePlaceholder } from '../components/PhasePlaceholder';
 import { QuickEntryScreen } from '../features/quick-entry/QuickEntryScreen';
 import { appConfig } from '../services/config';
@@ -258,7 +260,11 @@ function AppFlow(): React.JSX.Element {
           <AccountsScreen
             onBack={() => navigation.goBack()}
             onNewAccount={() => navigation.navigate('NovaConta')}
-            onOpenAccount={(account) => navigation.navigate('DetalheConta', { account })}
+            onOpenAccount={(account) =>
+              account.accountType === 'CREDIT_CARD'
+                ? navigation.navigate('Fatura', { card: account })
+                : navigation.navigate('DetalheConta', { account })
+            }
           />
         )}
       </AppStack.Screen>
@@ -332,6 +338,21 @@ function AppFlow(): React.JSX.Element {
       <AppStack.Screen name="Transferencia">
         {({ navigation }) => (
           <TransferScreen onBack={() => navigation.goBack()} onSaved={() => navigation.goBack()} />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="Fatura">
+        {({ navigation, route }) => (
+          <CardStatementScreen card={route.params.card} onBack={() => navigation.goBack()} />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="CompraCartao">
+        {({ navigation }) => (
+          <CardPurchaseScreen
+            onBack={() => navigation.goBack()}
+            onSaved={() => navigation.goBack()}
+          />
         )}
       </AppStack.Screen>
 
