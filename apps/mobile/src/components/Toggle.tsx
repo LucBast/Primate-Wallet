@@ -11,8 +11,8 @@ export type ToggleProps = {
   readonly value: boolean;
   readonly onValueChange: (value: boolean) => void;
   readonly accessibilityLabel: string;
-  readonly disabled?: boolean;
-  readonly testID?: string;
+  readonly disabled?: boolean | undefined;
+  readonly testID?: string | undefined;
 };
 
 export function Toggle({

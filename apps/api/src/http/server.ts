@@ -19,8 +19,14 @@ import { createAuthService, type AuthService } from '../modules/auth/service.js'
 import { createTokenService } from '../modules/auth/tokens.js';
 import { registerAuthRoutes } from '../modules/auth/routes.js';
 import type { Mailer } from '../modules/auth/mailer.js';
+import { createAuthenticate } from './authenticate.js';
+import { createHouseholdService, type HouseholdService } from '../modules/household/service.js';
+import { registerHouseholdRoutes } from '../modules/household/routes.js';
 
 export const APP_VERSION = '0.1.0';
+
+/** Esquema de deep link do app (docs/12). Todo link de e-mail usa esta base. */
+export const APP_LINK_BASE = 'familyfinance://';
 
 export type ServerDeps = {
   readonly config: AppConfig;
@@ -38,6 +44,7 @@ export type ServerDeps = {
 export type BuiltServer = {
   readonly app: FastifyInstance;
   readonly auth: AuthService;
+  readonly households: HouseholdService;
 };
 
 export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
@@ -76,12 +83,7 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
   });
 
   const tokens = createTokenService(config);
-  const auth = createAuthService({
-    db,
-    tokens,
-    mailer,
-    appLinkBase: 'familyfinance://',
-  });
+  const auth = createAuthService({ db, tokens, mailer, appLinkBase: APP_LINK_BASE });
 
   app.get('/health', async (_request, reply) => {
     const databaseOk = await checkDatabaseHealth(db);
@@ -94,7 +96,12 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
     return reply.status(databaseOk ? 200 : 503).send(body);
   });
 
+  const authenticate = createAuthenticate(tokens, auth);
+
   await registerAuthRoutes(app, { auth, tokens });
 
-  return { app, auth };
+  const households = createHouseholdService({ db, mailer, appLinkBase: APP_LINK_BASE });
+  await registerHouseholdRoutes(app, { households, authenticate });
+
+  return { app, auth, households };
 }

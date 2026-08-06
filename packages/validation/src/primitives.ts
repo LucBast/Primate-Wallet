@@ -7,7 +7,7 @@
  */
 
 import { z } from 'zod';
-import { isIsoDate, type IsoDate, type MinorUnits } from '@ff/domain';
+import { isIsoDate } from '@ff/domain';
 
 export const uuidSchema = z.uuid('Identificador inválido.');
 
@@ -15,10 +15,15 @@ export const uuidSchema = z.uuid('Identificador inválido.');
  * Valor monetário: inteiro em centavos. Rejeita float explicitamente — é a
  * primeira barreira contra a entrada de valores em reais por engano.
  * `z.int()` já restringe à faixa de inteiro seguro.
+ *
+ * O schema devolve `number`, não o tipo marcado `MinorUnits`: marcar aqui
+ * obrigaria todo cliente do contrato a conhecer a marca, e o que interessa na
+ * fronteira é a validação. Quem faz conta usa `minor()` do domínio, que valida
+ * de novo e devolve o tipo marcado.
  */
-export const minorUnitsSchema = z
-  .int('Valor monetário deve ser inteiro em centavos (R$ 10,00 = 1000).')
-  .transform((value) => value as MinorUnits);
+export const minorUnitsSchema = z.int(
+  'Valor monetário deve ser inteiro em centavos (R$ 10,00 = 1000).',
+);
 
 /** Valor monetário estritamente positivo (lançamentos, baixas). */
 export const positiveMinorUnitsSchema = minorUnitsSchema.refine(
@@ -33,10 +38,7 @@ export const nonNegativeMinorUnitsSchema = minorUnitsSchema.refine(
 );
 
 /** Data de calendário "YYYY-MM-DD" (competência, vencimento, data efetiva). */
-export const isoDateSchema = z
-  .string()
-  .refine(isIsoDate, 'Data inválida (esperado YYYY-MM-DD).')
-  .transform((value) => value as IsoDate);
+export const isoDateSchema = z.string().refine(isIsoDate, 'Data inválida (esperado YYYY-MM-DD).');
 
 /** Instante ISO 8601 completo. */
 export const isoDateTimeSchema = z.iso.datetime({ offset: true });

@@ -161,7 +161,7 @@ describe('auth_tokens', () => {
 });
 
 describe('audit_logs', () => {
-  it('é append-only: a aplicação insere, mas não lê nem apaga', async () => {
+  it('é append-only: a aplicação insere, mas não altera nem apaga', async () => {
     const ana = await createProfile('ana@exemplo.com', 'Ana');
     await asUser(
       ana,
@@ -172,12 +172,24 @@ describe('audit_logs', () => {
     const written = await adminPool.query('SELECT id FROM audit_logs');
     expect(written.rows).toHaveLength(1);
 
-    await expect(asUser(ana, 'SELECT id FROM audit_logs')).rejects.toThrow(
-      /permission denied|permissão negada/i,
-    );
     await expect(asUser(ana, 'DELETE FROM audit_logs')).rejects.toThrow(
       /permission denied|permissão negada/i,
     );
+    await expect(asUser(ana, `UPDATE audit_logs SET action = 'ADULTERADO'`)).rejects.toThrow(
+      /permission denied|permissão negada/i,
+    );
+  });
+
+  it('a leitura da trilha exige ser administrador da família', async () => {
+    const ana = await createProfile('ana@exemplo.com', 'Ana');
+    // Linha sem household: não pertence a nenhuma família e não é legível.
+    await asUser(
+      ana,
+      `INSERT INTO audit_logs (actor_user_id, entity_type, action) VALUES ($1, 'profile', 'TESTE')`,
+      [ana],
+    );
+    const visible = await asUser(ana, 'SELECT id FROM audit_logs');
+    expect(visible).toHaveLength(0);
   });
 
   it('não permite registrar auditoria em nome de outra pessoa', async () => {

@@ -26,7 +26,7 @@ export type StatusKind =
 export type StatusChipProps = {
   readonly status: StatusKind;
   /** Complemento da especificação: "falta R$ 510,10", "há 3 dias". */
-  readonly detail?: string;
+  readonly detail?: string | undefined;
 };
 
 const LABELS: Record<StatusKind, string> = {

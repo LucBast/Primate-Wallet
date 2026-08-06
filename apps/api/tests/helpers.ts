@@ -57,7 +57,21 @@ export async function truncateAll(): Promise<void> {
     connectionString: process.env['DATABASE_MIGRATION_URL'],
     max: 1,
   });
-  await adminPool.query('TRUNCATE audit_logs, auth_tokens, devices, profiles CASCADE');
+  // `profiles` e `households` puxam o resto por CASCADE; listamos as raízes.
+  await adminPool.query('TRUNCATE audit_logs, auth_tokens, devices, profiles, households CASCADE');
+}
+
+/** Executa SQL com a conexão de migração (para arranjo e verificação). */
+export async function adminQuery<T extends pg.QueryResultRow = pg.QueryResultRow>(
+  sql: string,
+  params: unknown[] = [],
+): Promise<T[]> {
+  adminPool ??= new pg.Pool({
+    connectionString: process.env['DATABASE_MIGRATION_URL'],
+    max: 1,
+  });
+  const result = await adminPool.query<T>(sql, params);
+  return result.rows;
 }
 
 export async function closeAdminPool(): Promise<void> {
@@ -83,3 +97,50 @@ export const TEST_DEVICE = {
   name: 'iPhone de Teste',
   appVersion: '0.1.0',
 };
+
+export type TestUser = {
+  readonly accessToken: string;
+  readonly refreshToken: string;
+  readonly profileId: string;
+  readonly email: string;
+};
+
+/**
+ * Cadastra, confirma o e-mail e devolve a sessão pronta. Cada usuário recebe um
+ * `installationId` próprio, senão o upsert de sessão colidiria entre eles.
+ */
+export async function registerUser(
+  ctx: TestContext,
+  email: string,
+  displayName = email.split('@')[0] ?? 'Pessoa',
+): Promise<TestUser> {
+  const registered = await ctx.app.inject({
+    method: 'POST',
+    url: '/auth/register',
+    payload: { email, password: 'senha-de-teste-longa', displayName },
+  });
+  if (registered.statusCode !== 202) {
+    throw new Error(`Cadastro falhou: ${registered.statusCode} ${registered.body}`);
+  }
+
+  const token = lastEmailLink(ctx.mailer);
+  const verified = await ctx.app.inject({
+    method: 'POST',
+    url: '/auth/verify-email',
+    payload: {
+      token,
+      device: { ...TEST_DEVICE, installationId: `installation-${email}` },
+    },
+  });
+  if (verified.statusCode !== 200) {
+    throw new Error(`Confirmação falhou: ${verified.statusCode} ${verified.body}`);
+  }
+
+  const session = verified.json();
+  return {
+    accessToken: session.accessToken,
+    refreshToken: session.refreshToken,
+    profileId: session.profile.id,
+    email,
+  };
+}

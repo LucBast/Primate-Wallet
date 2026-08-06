@@ -18,8 +18,8 @@ export type BannerKind = 'info' | 'warning' | 'error' | 'offline';
 export type BannerProps = {
   readonly kind: BannerKind;
   readonly message: string;
-  readonly onRetry?: () => void;
-  readonly testID?: string;
+  readonly onRetry?: (() => void) | undefined;
+  readonly testID?: string | undefined;
 };
 
 export function Banner({ kind, message, onRetry, testID }: BannerProps): React.JSX.Element {

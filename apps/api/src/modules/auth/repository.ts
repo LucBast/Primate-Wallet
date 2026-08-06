@@ -311,27 +311,40 @@ export async function listActiveDevices(
   return result.rows;
 }
 
+/**
+ * Entrada da trilha de auditoria (docs/14 §4). `beforeData`/`afterData`
+ * alimentam a linha "antes → depois" da tela 3d.
+ */
 export type AuditEntry = {
   householdId?: string | null;
   actorUserId: string | null;
   entityType: string;
   entityId?: string | null;
   action: string;
+  beforeData?: Record<string, unknown> | null;
+  afterData?: Record<string, unknown> | null;
   metadata?: Record<string, unknown> | null;
   requestId?: string | null;
 };
 
+const asJson = (value: Record<string, unknown> | null | undefined): string | null =>
+  value ? JSON.stringify(value) : null;
+
 export async function insertAuditLog(client: PoolClient, entry: AuditEntry): Promise<void> {
   await client.query(
-    `INSERT INTO audit_logs (household_id, actor_user_id, entity_type, entity_id, action, metadata, request_id)
-     VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+    `INSERT INTO audit_logs
+       (household_id, actor_user_id, entity_type, entity_id, action,
+        before_data, after_data, metadata, request_id)
+     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)`,
     [
       entry.householdId ?? null,
       entry.actorUserId,
       entry.entityType,
       entry.entityId ?? null,
       entry.action,
-      entry.metadata ? JSON.stringify(entry.metadata) : null,
+      asJson(entry.beforeData),
+      asJson(entry.afterData),
+      asJson(entry.metadata),
       entry.requestId ?? null,
     ],
   );

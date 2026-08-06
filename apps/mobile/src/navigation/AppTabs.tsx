@@ -3,8 +3,7 @@
  *
  * A tab bar padrão do React Navigation NÃO é usada (docs/01 §Mobile): o design
  * exige 5 posições com botão central elevado, então a barra é o componente
- * `BottomNav` e a troca de aba é estado local — o mesmo recorte visual do
- * screenshot 1b.
+ * `BottomNav` e a troca de aba é estado local — o mesmo recorte do screenshot 1b.
  */
 
 import React, { useState } from 'react';
@@ -16,27 +15,44 @@ import { PlanningScreen } from '../features/planning/PlanningScreen';
 import { TransactionsScreen } from '../features/transactions/TransactionsScreen';
 import { MoreScreen } from '../features/more/MoreScreen';
 
-const SCREENS: Record<NavItemKey, () => React.JSX.Element> = {
-  inicio: HomeScreen,
-  planejamento: PlanningScreen,
-  movimentacoes: TransactionsScreen,
-  mais: MoreScreen,
-};
-
 export type AppTabsProps = {
   readonly onQuickEntry: () => void;
+  readonly onNavigate: (
+    destination:
+      | 'Familia'
+      | 'Contas'
+      | 'Categorias'
+      | 'Relatorios'
+      | 'Sessoes'
+      | 'Configuracoes'
+      | 'Planejamento'
+      | 'Movimentacoes',
+  ) => void;
 };
 
-export function AppTabs({ onQuickEntry }: AppTabsProps): React.JSX.Element {
+export function AppTabs({ onQuickEntry, onNavigate }: AppTabsProps): React.JSX.Element {
   const { colors } = useTheme();
   const [active, setActive] = useState<NavItemKey>('inicio');
-  const Screen = SCREENS[active];
+
+  const screens: Record<NavItemKey, React.JSX.Element> = {
+    inicio: <HomeScreen />,
+    planejamento: <PlanningScreen />,
+    movimentacoes: <TransactionsScreen />,
+    mais: (
+      <MoreScreen
+        onOpenFamily={() => onNavigate('Familia')}
+        onOpenAccounts={() => onNavigate('Contas')}
+        onOpenCategories={() => onNavigate('Categorias')}
+        onOpenReports={() => onNavigate('Relatorios')}
+        onOpenSessions={() => onNavigate('Sessoes')}
+        onOpenSettings={() => onNavigate('Configuracoes')}
+      />
+    ),
+  };
 
   return (
     <View style={[styles.container, { backgroundColor: colors.surface }]}>
-      <View style={styles.content}>
-        <Screen />
-      </View>
+      <View style={styles.content}>{screens[active]}</View>
       <BottomNav active={active} onSelect={setActive} onAdd={onQuickEntry} />
     </View>
   );

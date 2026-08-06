@@ -4,6 +4,8 @@
  * mesmo destino.
  */
 
+import type { Member } from '@ff/api-contracts';
+
 export type AuthStackParamList = {
   Login: undefined;
   CriarConta: undefined;
@@ -13,8 +15,25 @@ export type AuthStackParamList = {
 
 export type AppStackParamList = {
   Tabs: undefined;
-  /** Lançamento rápido, aberto pelo botão central "+" (Fase 8). */
+  /** Lançamento rápido, aberto pelo botão central "+". */
   LancamentoRapido: undefined;
+  Familia: undefined;
+  MembroPermissoes: { member: Member };
+  ConvidarMembro: undefined;
+  Atividade: undefined;
+  Sessoes: undefined;
+  Aprovacoes: undefined;
+  EditarFamilia: undefined;
+  /** Aceite de convite chegando por deep link, já com sessão. */
+  Convite: { token: string };
+  /** Destinos ainda não entregues; some conforme as fases avançam. */
+  EmConstrucao: { destination: string };
+};
+
+/** Fluxo de quem entrou e ainda não pertence a nenhuma família. */
+export type OnboardingStackParamList = {
+  CriarFamilia: undefined;
+  Convite: { token: string };
 };
 
 export type TabKey = 'inicio' | 'planejamento' | 'movimentacoes' | 'mais';

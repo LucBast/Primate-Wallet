@@ -22,11 +22,11 @@ export type ButtonProps = {
   readonly onPress: () => void | Promise<void>;
   readonly variant?: ButtonVariant;
   readonly size?: ButtonSize;
-  readonly disabled?: boolean;
-  readonly loading?: boolean;
-  readonly accessibilityHint?: string;
-  readonly style?: ViewStyle;
-  readonly testID?: string;
+  readonly disabled?: boolean | undefined;
+  readonly loading?: boolean | undefined;
+  readonly accessibilityHint?: string | undefined;
+  readonly style?: ViewStyle | undefined;
+  readonly testID?: string | undefined;
 };
 
 export function Button({

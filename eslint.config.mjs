@@ -25,7 +25,9 @@ const colorLiteralSelectors = [
   },
   {
     selector:
-      'Literal[value=/^(?:white|black|red|green|blue|gray|grey|silver|orange|yellow|purple|pink|brown|cyan|magenta|transparent)$/i]',
+      // `transparent` fica de fora: é ausência de cor, não uma escolha de
+      // paleta, e não existe token equivalente.
+      'Literal[value=/^(?:white|black|red|green|blue|gray|grey|silver|orange|yellow|purple|pink|brown|cyan|magenta)$/i]',
     message:
       'Cor nomeada proibida. Use os tokens de src/design-system/tokens.ts (CLAUDE.md §Fidelidade visual).',
   },

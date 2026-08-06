@@ -15,11 +15,11 @@ import { font, type as typeTokens } from '../design-system/tokens';
 export type FieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
   readonly label: string;
   /** Texto de ação à direita do valor ("mostrar"/"ocultar"). */
-  readonly actionLabel?: string;
-  readonly onActionPress?: () => void;
+  readonly actionLabel?: string | undefined;
+  readonly onActionPress?: (() => void) | undefined;
   /** Mensagem de erro exibida abaixo do campo. */
-  readonly error?: string;
-  readonly testID?: string;
+  readonly error?: string | undefined;
+  readonly testID?: string | undefined;
 };
 
 export function Field({

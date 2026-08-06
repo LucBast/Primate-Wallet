@@ -29,6 +29,12 @@ function extractBearer(header: string | undefined): string {
   return value;
 }
 
+/** Assinatura do preHandler devolvido por `createAuthenticate`. */
+export type AuthenticatedPreHandler = (
+  request: FastifyRequest,
+  reply: FastifyReply,
+) => Promise<void>;
+
 export function createAuthenticate(tokens: TokenService, auth: AuthService) {
   return async function authenticate(request: FastifyRequest, _reply: FastifyReply): Promise<void> {
     const token = extractBearer(request.headers.authorization);
