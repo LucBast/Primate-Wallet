@@ -4,7 +4,7 @@
  * mesmo destino.
  */
 
-import type { Member } from '@ff/api-contracts';
+import type { Account, Member } from '@ff/api-contracts';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -24,6 +24,10 @@ export type AppStackParamList = {
   Sessoes: undefined;
   Aprovacoes: undefined;
   EditarFamilia: undefined;
+  Contas: undefined;
+  NovaConta: undefined;
+  DetalheConta: { account: Account };
+  Categorias: undefined;
   /** Aceite de convite chegando por deep link, já com sessão. */
   Convite: { token: string };
   /** Destinos ainda não entregues; some conforme as fases avançam. */

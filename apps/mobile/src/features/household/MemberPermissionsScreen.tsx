@@ -16,7 +16,7 @@
  * seção simplesmente não é renderizada.
  */
 
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ApprovalMode, HouseholdRole, Member } from '@ff/api-contracts';
@@ -44,7 +44,8 @@ export type AccountPermission = {
 
 export type MemberPermissionsScreenProps = {
   readonly member: Member;
-  readonly accounts?: readonly AccountPermission[];
+  /** Carrega as permissões por conta; a Fase 2 é quem passa isso de fato. */
+  readonly loadAccounts?: (() => Promise<readonly AccountPermission[]>) | undefined;
   readonly onBack: () => void;
   readonly onSave: (input: {
     role: HouseholdRole;
@@ -70,7 +71,7 @@ const APPROVAL_OPTIONS: ReadonlyArray<{ value: ApprovalMode; label: string }> = 
 
 export function MemberPermissionsScreen({
   member,
-  accounts = [],
+  loadAccounts,
   onBack,
   onSave,
   onSuspend,
@@ -85,9 +86,17 @@ export function MemberPermissionsScreen({
       ? ''
       : formatMoney(minor(member.approvalThresholdMinor), { symbol: false }),
   );
-  const [permissions, setPermissions] = useState<readonly AccountPermission[]>(accounts);
+  const [permissions, setPermissions] = useState<readonly AccountPermission[]>([]);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (loadAccounts === undefined) return;
+    void loadAccounts()
+      .then(setPermissions)
+      // Falha ao listar contas não deve impedir ajustar papel e aprovação.
+      .catch(() => setPermissions([]));
+  }, [loadAccounts]);
 
   const granted = useMemo(() => permissions.filter((item) => item.canView), [permissions]);
   const denied = useMemo(() => permissions.filter((item) => !item.canView), [permissions]);

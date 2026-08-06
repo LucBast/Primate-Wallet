@@ -9,7 +9,7 @@
  * Deep links `familyfinance://` (doc 12) entram pelos três fluxos.
  */
 
-import React, { useEffect } from 'react';
+import React, { useCallback, useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import {
   NavigationContainer,
@@ -32,6 +32,11 @@ import { InviteMemberScreen } from '../features/household/InviteMemberScreen';
 import { MemberPermissionsScreen } from '../features/household/MemberPermissionsScreen';
 import { useHouseholdStore } from '../features/household/household-store';
 import * as householdApi from '../features/household/household-api';
+import { AccountsScreen } from '../features/account/AccountsScreen';
+import { AccountFormScreen } from '../features/account/AccountFormScreen';
+import { AccountDetailScreen } from '../features/account/AccountDetailScreen';
+import { CategoriesScreen } from '../features/account/CategoriesScreen';
+import * as accountApi from '../features/account/account-api';
 import { PhasePlaceholder } from '../components/PhasePlaceholder';
 import { QuickEntryScreen } from '../features/quick-entry/QuickEntryScreen';
 import { appConfig } from '../services/config';
@@ -40,16 +45,6 @@ import type { AppStackParamList, AuthStackParamList, OnboardingStackParamList } 
 
 /** Destinos que ainda não têm tela; cada entrada some quando a fase entrega. */
 const UPCOMING: Record<string, { title: string; phase: string; screenshot: string }> = {
-  Contas: {
-    title: 'Contas e cartões',
-    phase: 'Fase 2 — Contas e categorias',
-    screenshot: 'design/screenshots/2a-contas.png',
-  },
-  Categorias: {
-    title: 'Categorias',
-    phase: 'Fase 2 — Contas e categorias',
-    screenshot: 'design/screenshots/2a-contas.png',
-  },
   Relatorios: {
     title: 'Relatórios',
     phase: 'Fase 7 — Dashboard e relatórios',
@@ -66,6 +61,10 @@ const AuthStack = createNativeStackNavigator<AuthStackParamList>();
 const AppStack = createNativeStackNavigator<AppStackParamList>();
 const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
 
+/**
+ * Deep links do doc 12. `entrar?token=` (link mágico) e `verificar-email?token=`
+ * chegam pela mesma tela de aterrissagem, que troca o token por uma sessão.
+ */
 const linking: LinkingOptions<ParamListBase> = {
   prefixes: [`${appConfig.deepLinkScheme}://`],
   config: {
@@ -74,6 +73,7 @@ const linking: LinkingOptions<ParamListBase> = {
       CriarConta: 'criar-conta',
       Convite: 'convite',
       Familia: 'familia',
+      Contas: 'contas',
       LancamentoRapido: 'novo',
     },
   },
@@ -122,6 +122,22 @@ function AppFlow(): React.JSX.Element {
   const activeId = useHouseholdStore((state) => state.activeId);
   const setActive = useHouseholdStore((state) => state.setActive);
 
+  /** Permissões de conta do membro, para completar a tela 3b. */
+  const loadPermissions = useCallback(
+    async (memberId: string) => {
+      if (!accessToken || activeId === null) return [];
+      const permissions = await accountApi.listAccountPermissions(accessToken, activeId, memberId);
+      return permissions.map((permission) => ({
+        accountId: permission.accountId,
+        accountName: permission.accountName,
+        canView: permission.canView,
+        canTransact: permission.canTransact,
+        canEdit: permission.canEdit,
+      }));
+    },
+    [accessToken, activeId],
+  );
+
   return (
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Tabs">
@@ -131,6 +147,8 @@ function AppFlow(): React.JSX.Element {
             onNavigate={(destination) => {
               if (destination === 'Familia') navigation.navigate('Familia');
               else if (destination === 'Sessoes') navigation.navigate('Sessoes');
+              else if (destination === 'Contas') navigation.navigate('Contas');
+              else if (destination === 'Categorias') navigation.navigate('Categorias');
               else navigation.navigate('EmConstrucao', { destination });
             }}
           />
@@ -161,6 +179,7 @@ function AppFlow(): React.JSX.Element {
         {({ navigation, route }) => (
           <MemberPermissionsScreen
             member={route.params.member}
+            loadAccounts={() => loadPermissions(route.params.member.id)}
             onBack={() => navigation.goBack()}
             onSave={async (input) => {
               if (!accessToken || activeId === null) return;
@@ -170,6 +189,19 @@ function AppFlow(): React.JSX.Element {
                 approvalThresholdMinor: input.approvalThresholdMinor,
                 expectedVersion: route.params.member.version,
               });
+              await accountApi.setAccountPermissions(
+                accessToken,
+                activeId,
+                route.params.member.id,
+                {
+                  permissions: input.accounts.map((account) => ({
+                    accountId: account.accountId,
+                    canView: account.canView,
+                    canTransact: account.canTransact,
+                    canEdit: account.canEdit,
+                  })),
+                },
+              );
               navigation.goBack();
             }}
             onSuspend={async () => {
@@ -199,6 +231,40 @@ function AppFlow(): React.JSX.Element {
 
       <AppStack.Screen name="Sessoes">
         {({ navigation }) => <SessionsScreen onBack={() => navigation.goBack()} />}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="Contas">
+        {({ navigation }) => (
+          <AccountsScreen
+            onBack={() => navigation.goBack()}
+            onNewAccount={() => navigation.navigate('NovaConta')}
+            onOpenAccount={(account) => navigation.navigate('DetalheConta', { account })}
+          />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="NovaConta">
+        {({ navigation }) => (
+          <AccountFormScreen
+            onBack={() => navigation.goBack()}
+            onSaved={() => navigation.goBack()}
+          />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="DetalheConta">
+        {({ navigation, route }) => (
+          <AccountDetailScreen
+            account={route.params.account}
+            onBack={() => navigation.goBack()}
+            onTransfer={() => navigation.navigate('EmConstrucao', { destination: 'Transferencia' })}
+            onPermissions={() => navigation.navigate('Familia')}
+          />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="Categorias">
+        {({ navigation }) => <CategoriesScreen onBack={() => navigation.goBack()} />}
       </AppStack.Screen>
 
       <AppStack.Screen name="Aprovacoes">

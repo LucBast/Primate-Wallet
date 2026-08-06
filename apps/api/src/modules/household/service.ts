@@ -31,6 +31,7 @@ import type { Mailer } from '../auth/mailer.js';
 import { createSingleUseToken, sha256 } from '../auth/tokens.js';
 import type { RequestContext } from '../auth/service.js';
 import { insertAuditLog } from '../auth/repository.js';
+import { seedDefaultCategories } from '../account/service.js';
 
 const INVITATION_TTL_DAYS = 7;
 
@@ -186,6 +187,10 @@ export function createHouseholdService(deps: HouseholdServiceDeps) {
         const row = household.rows[0];
         /* c8 ignore next */
         if (!row) throw new DomainError('INTERNAL_ERROR');
+
+        // Família nova já nasce com as categorias padrão em pt-BR: sem elas,
+        // o primeiro lançamento não teria onde ser classificado.
+        await seedDefaultCategories(client, householdId);
 
         await insertAuditLog(client, {
           householdId: row.id,

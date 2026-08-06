@@ -41,7 +41,7 @@ export class ApiRequestError extends Error {
 }
 
 export type RequestOptions = {
-  readonly method?: 'GET' | 'POST' | 'PATCH' | 'DELETE';
+  readonly method?: 'GET' | 'POST' | 'PUT' | 'PATCH' | 'DELETE';
   readonly body?: unknown;
   readonly accessToken?: string | undefined;
   /** Comandos financeiros exigem chave de idempotência (docs/04 §14). */

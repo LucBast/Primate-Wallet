@@ -22,6 +22,8 @@ import type { Mailer } from '../modules/auth/mailer.js';
 import { createAuthenticate } from './authenticate.js';
 import { createHouseholdService, type HouseholdService } from '../modules/household/service.js';
 import { registerHouseholdRoutes } from '../modules/household/routes.js';
+import { createAccountService, type AccountService } from '../modules/account/service.js';
+import { registerAccountRoutes } from '../modules/account/routes.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -45,6 +47,7 @@ export type BuiltServer = {
   readonly app: FastifyInstance;
   readonly auth: AuthService;
   readonly households: HouseholdService;
+  readonly accounts: AccountService;
 };
 
 export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
@@ -103,5 +106,8 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
   const households = createHouseholdService({ db, mailer, appLinkBase: APP_LINK_BASE });
   await registerHouseholdRoutes(app, { households, authenticate });
 
-  return { app, auth, households };
+  const accounts = createAccountService({ db });
+  await registerAccountRoutes(app, { accounts, authenticate });
+
+  return { app, auth, households, accounts };
 }
