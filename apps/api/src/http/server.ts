@@ -37,6 +37,8 @@ import {
 import { registerTransactionRoutes } from '../modules/transaction/routes.js';
 import { createCardService, type CardService } from '../modules/card/service.js';
 import { registerCardRoutes } from '../modules/card/routes.js';
+import { createReportService, type ReportService } from '../modules/report/service.js';
+import { registerReportRoutes } from '../modules/report/routes.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -65,6 +67,7 @@ export type BuiltServer = {
   readonly transactions: TransactionService;
   readonly settlements: SettlementService;
   readonly cards: CardService;
+  readonly reports: ReportService;
 };
 
 export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
@@ -139,5 +142,18 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
   const cards = createCardService({ db });
   await registerCardRoutes(app, { cards, authenticate });
 
-  return { app, auth, households, accounts, planning, transactions, settlements, cards };
+  const reports = createReportService({ db });
+  await registerReportRoutes(app, { reports, authenticate });
+
+  return {
+    app,
+    auth,
+    households,
+    accounts,
+    planning,
+    transactions,
+    settlements,
+    cards,
+    reports,
+  };
 }

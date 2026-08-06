@@ -45,6 +45,7 @@ import { TransactionDetailScreen } from '../features/transactions/TransactionDet
 import { TransferScreen } from '../features/transactions/TransferScreen';
 import { CardStatementScreen } from '../features/card/CardStatementScreen';
 import { CardPurchaseScreen } from '../features/card/CardPurchaseScreen';
+import { ReportsScreen } from '../features/home/ReportsScreen';
 import { PhasePlaceholder } from '../components/PhasePlaceholder';
 import { QuickEntryScreen } from '../features/quick-entry/QuickEntryScreen';
 import { appConfig } from '../services/config';
@@ -53,10 +54,10 @@ import type { AppStackParamList, AuthStackParamList, OnboardingStackParamList } 
 
 /** Destinos que ainda não têm tela; cada entrada some quando a fase entrega. */
 const UPCOMING: Record<string, { title: string; phase: string; screenshot: string }> = {
-  Relatorios: {
-    title: 'Relatórios',
-    phase: 'Fase 7 — Dashboard e relatórios',
-    screenshot: 'design/screenshots/4a-relatorios.png',
+  Notificacoes: {
+    title: 'Notificações',
+    phase: 'Fase 8 — Experiência rápida',
+    screenshot: 'design/screenshots/6d-notificacoes.png',
   },
   Configuracoes: {
     title: 'Configurações',
@@ -163,6 +164,7 @@ function AppFlow(): React.JSX.Element {
             onNewPlannedEntry={(nature) => navigation.navigate('NovaContaPrevista', { nature })}
             onSettleEntry={(entry) => navigation.navigate('DarBaixa', { entry })}
             onOpenPlannedEntry={(entry) => navigation.navigate('DetalheContaPrevista', { entry })}
+            onOpenPlanningTab={() => undefined}
             onOpenTransaction={(transaction) =>
               navigation.navigate('DetalheMovimentacao', { transaction })
             }
@@ -171,6 +173,9 @@ function AppFlow(): React.JSX.Element {
               else if (destination === 'Sessoes') navigation.navigate('Sessoes');
               else if (destination === 'Contas') navigation.navigate('Contas');
               else if (destination === 'Categorias') navigation.navigate('Categorias');
+              else if (destination === 'Relatorios') navigation.navigate('Relatorios');
+              else if (destination === 'Notificacoes')
+                navigation.navigate('EmConstrucao', { destination: 'Notificacoes' });
               else navigation.navigate('EmConstrucao', { destination });
             }}
           />
@@ -354,6 +359,10 @@ function AppFlow(): React.JSX.Element {
             onSaved={() => navigation.goBack()}
           />
         )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="Relatorios">
+        {({ navigation }) => <ReportsScreen onBack={() => navigation.goBack()} />}
       </AppStack.Screen>
 
       <AppStack.Screen name="Aprovacoes">

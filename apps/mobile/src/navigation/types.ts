@@ -41,6 +41,8 @@ export type AppStackParamList = {
   Transferencia: undefined;
   Fatura: { card: Account };
   CompraCartao: undefined;
+  Relatorios: undefined;
+  Notificacoes: undefined;
   /** Aceite de convite chegando por deep link, já com sessão. */
   Convite: { token: string };
   /** Destinos ainda não entregues; some conforme as fases avançam. */

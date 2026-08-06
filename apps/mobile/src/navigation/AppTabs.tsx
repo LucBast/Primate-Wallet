@@ -22,6 +22,7 @@ export type AppTabsProps = {
   readonly onSettleEntry: (entry: PlannedEntry) => void;
   readonly onOpenPlannedEntry: (entry: PlannedEntry) => void;
   readonly onOpenTransaction: (transaction: Transaction) => void;
+  readonly onOpenPlanningTab: () => void;
   readonly onNavigate: (
     destination:
       | 'Familia'
@@ -30,6 +31,7 @@ export type AppTabsProps = {
       | 'Relatorios'
       | 'Sessoes'
       | 'Configuracoes'
+      | 'Notificacoes'
       | 'Planejamento'
       | 'Movimentacoes',
   ) => void;
@@ -42,12 +44,23 @@ export function AppTabs({
   onSettleEntry,
   onOpenPlannedEntry,
   onOpenTransaction,
+  onOpenPlanningTab,
 }: AppTabsProps): React.JSX.Element {
   const { colors } = useTheme();
   const [active, setActive] = useState<NavItemKey>('inicio');
 
   const screens: Record<NavItemKey, React.JSX.Element> = {
-    inicio: <HomeScreen />,
+    inicio: (
+      <HomeScreen
+        onOpenPlanning={() => {
+          setActive('planejamento');
+          onOpenPlanningTab();
+        }}
+        onOpenReports={() => onNavigate('Relatorios')}
+        onOpenNotifications={() => onNavigate('Notificacoes')}
+        onSwitchHousehold={() => onNavigate('Familia')}
+      />
+    ),
     planejamento: (
       <PlanningScreen
         onNewEntry={onNewPlannedEntry}
