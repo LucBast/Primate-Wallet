@@ -1,0 +1,124 @@
+name: CI
+
+# Gates obrigatórios por pull request (docs/15 §2):
+# instalação limpa, lint, typecheck, unit, integração, RLS, build, migrações e scan de segredos.
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: '22.x'
+
+jobs:
+  static:
+    name: Lint · format · typecheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - name: Instalação limpa
+        run: npm ci
+      - name: Format check
+        run: npm run format:check
+      - name: Lint
+        run: npm run lint
+      - name: Typecheck
+        run: npm run typecheck
+
+  unit:
+    name: Testes unitários (domínio e contratos)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run test:unit
+
+  integration:
+    name: Migrações · integração · RLS
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: ff_migrator
+          POSTGRES_PASSWORD: ff_dev_password
+          POSTGRES_DB: family_finance
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U ff_migrator -d family_finance"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+    env:
+      APP_ENV: development
+      NODE_ENV: test
+      LOG_LEVEL: silent
+      DATABASE_MIGRATION_URL: postgres://ff_migrator:ff_dev_password@localhost:5432/family_finance
+      DATABASE_URL: postgres://ff_app:ff_dev_password@localhost:5432/family_finance
+      JWT_ACCESS_SECRET: ci-access-secret-ci-access-secret-ci-access
+      JWT_REFRESH_SECRET: ci-refresh-secret-ci-refresh-secret-ci-refre
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Criar role de aplicação (NOBYPASSRLS)
+        run: psql "$DATABASE_MIGRATION_URL" -v ON_ERROR_STOP=1 -f infra/postgres-init/01-roles.sql
+      - name: Aplicar migrações
+        run: npm run db:migrate
+      - name: Verificar que as migrações são idempotentes (re-run)
+        run: npm run db:migrate
+      - name: Testes de integração e RLS
+        run: npm run test --workspace @ff/api
+
+  mobile:
+    name: App — testes e gate de tokens
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      # Verifica, entre outras coisas, que src/design-system/tokens.ts continua
+      # sendo cópia byte a byte de design/design-tokens.ts e que as fontes
+      # Manrope estão no bundle das duas plataformas (CLAUDE.md §Fidelidade).
+      - run: npm run test --workspace @ff/mobile
+
+  build:
+    name: Build de validação
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+
+  secrets-scan:
+    name: Scan de segredos
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

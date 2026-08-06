@@ -1,0 +1,168 @@
+/**
+ * Configuração validada no startup (docs/15 §6).
+ *
+ * Se qualquer variável estiver ausente ou inválida, o processo NÃO sobe — é
+ * preferível falhar no deploy a servir tráfego com configuração incompleta.
+ */
+
+import { z } from 'zod';
+
+const booleanFromEnv = z
+  .enum(['true', 'false', '1', '0'])
+  .transform((value) => value === 'true' || value === '1');
+
+const intFromEnv = (min: number, max: number) => z.coerce.number().int().min(min).max(max);
+
+const envSchema = z
+  .object({
+    APP_ENV: z.enum(['development', 'staging', 'production']),
+    NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
+    LOG_LEVEL: z
+      .enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent'])
+      .default('info'),
+
+    API_HOST: z.string().min(1).default('0.0.0.0'),
+    API_PORT: intFromEnv(1, 65_535).default(3333),
+    API_CORS_ORIGINS: z.string().default(''),
+
+    DATABASE_URL: z.string().min(1),
+    DATABASE_AUTH_URL: z.string().min(1).optional(),
+    DATABASE_MIGRATION_URL: z.string().min(1),
+    DATABASE_POOL_MAX: intFromEnv(1, 100).default(10),
+    DATABASE_SSL: booleanFromEnv.default(false),
+
+    JWT_ACCESS_SECRET: z.string().min(32, 'JWT_ACCESS_SECRET deve ter ao menos 32 caracteres.'),
+    JWT_REFRESH_SECRET: z.string().min(32, 'JWT_REFRESH_SECRET deve ter ao menos 32 caracteres.'),
+    JWT_ACCESS_TTL: intFromEnv(60, 86_400).default(900),
+    JWT_REFRESH_TTL: intFromEnv(3_600, 31_536_000).default(2_592_000),
+    JWT_ISSUER: z.string().min(1).default('family-finance'),
+
+    SENTRY_DSN: z.string().default(''),
+    SENTRY_TRACES_SAMPLE_RATE: z.coerce.number().min(0).max(1).default(0.1),
+
+    STORAGE_ENDPOINT: z.string().default(''),
+    STORAGE_REGION: z.string().default('us-east-1'),
+    STORAGE_BUCKET: z.string().default(''),
+    STORAGE_ACCESS_KEY_ID: z.string().default(''),
+    STORAGE_SECRET_ACCESS_KEY: z.string().default(''),
+    STORAGE_SIGNED_URL_TTL: intFromEnv(30, 3_600).default(300),
+  })
+  .superRefine((env, ctx) => {
+    if (env.APP_ENV === 'production') {
+      if (env.API_CORS_ORIGINS.trim() === '' || env.API_CORS_ORIGINS.includes('*')) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['API_CORS_ORIGINS'],
+          message: 'Em produção, as origens de CORS devem ser explícitas (nunca "*").',
+        });
+      }
+      if (env.SENTRY_DSN.trim() === '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['SENTRY_DSN'],
+          message: 'Em produção, SENTRY_DSN é obrigatório (docs/14 §1).',
+        });
+      }
+      if (env.JWT_ACCESS_SECRET === env.JWT_REFRESH_SECRET) {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['JWT_REFRESH_SECRET'],
+          message: 'Os segredos de access e refresh devem ser diferentes.',
+        });
+      }
+    }
+  });
+
+export type RawEnv = z.infer<typeof envSchema>;
+
+export type AppConfig = {
+  readonly env: RawEnv['APP_ENV'];
+  readonly isProduction: boolean;
+  readonly isTest: boolean;
+  readonly logLevel: RawEnv['LOG_LEVEL'];
+  readonly http: {
+    readonly host: string;
+    readonly port: number;
+    readonly corsOrigins: readonly string[];
+  };
+  readonly database: {
+    /** Conexão do runtime da aplicação (role ff_app, sujeito a RLS). */
+    readonly url: string;
+    /** Conexão do serviço de autenticação (role ff_auth). */
+    readonly authUrl: string;
+    readonly poolMax: number;
+    readonly ssl: boolean;
+  };
+  readonly auth: {
+    readonly accessSecret: string;
+    readonly refreshSecret: string;
+    readonly accessTtlSeconds: number;
+    readonly refreshTtlSeconds: number;
+    readonly issuer: string;
+  };
+  readonly sentry: { readonly dsn: string; readonly tracesSampleRate: number };
+  readonly storage: {
+    readonly endpoint: string;
+    readonly region: string;
+    readonly bucket: string;
+    readonly accessKeyId: string;
+    readonly secretAccessKey: string;
+    readonly signedUrlTtlSeconds: number;
+  };
+};
+
+export class ConfigError extends Error {
+  constructor(issues: readonly string[]) {
+    super(`Configuração inválida:\n  - ${issues.join('\n  - ')}`);
+    this.name = 'ConfigError';
+  }
+}
+
+export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
+  const parsed = envSchema.safeParse(source);
+  if (!parsed.success) {
+    throw new ConfigError(
+      parsed.error.issues.map((issue) => `${issue.path.join('.')}: ${issue.message}`),
+    );
+  }
+  const env = parsed.data;
+
+  return {
+    env: env.APP_ENV,
+    isProduction: env.APP_ENV === 'production',
+    isTest: env.NODE_ENV === 'test',
+    logLevel: env.LOG_LEVEL,
+    http: {
+      host: env.API_HOST,
+      port: env.API_PORT,
+      corsOrigins: env.API_CORS_ORIGINS.split(',')
+        .map((origin) => origin.trim())
+        .filter((origin) => origin !== ''),
+    },
+    database: {
+      url: env.DATABASE_URL,
+      // Sem URL dedicada, o serviço de autenticação usa a mesma conexão. Em
+      // homologação e produção, DATABASE_AUTH_URL (role ff_auth) é obrigatória
+      // para valer a separação de privilégios — ver docs/02-ENVIRONMENTS.md.
+      authUrl: env.DATABASE_AUTH_URL ?? env.DATABASE_URL,
+      poolMax: env.DATABASE_POOL_MAX,
+      ssl: env.DATABASE_SSL,
+    },
+    auth: {
+      accessSecret: env.JWT_ACCESS_SECRET,
+      refreshSecret: env.JWT_REFRESH_SECRET,
+      accessTtlSeconds: env.JWT_ACCESS_TTL,
+      refreshTtlSeconds: env.JWT_REFRESH_TTL,
+      issuer: env.JWT_ISSUER,
+    },
+    sentry: { dsn: env.SENTRY_DSN, tracesSampleRate: env.SENTRY_TRACES_SAMPLE_RATE },
+    storage: {
+      endpoint: env.STORAGE_ENDPOINT,
+      region: env.STORAGE_REGION,
+      bucket: env.STORAGE_BUCKET,
+      accessKeyId: env.STORAGE_ACCESS_KEY_ID,
+      secretAccessKey: env.STORAGE_SECRET_ACCESS_KEY,
+      signedUrlTtlSeconds: env.STORAGE_SIGNED_URL_TTL,
+    },
+  };
+}

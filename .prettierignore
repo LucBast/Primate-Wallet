@@ -1,0 +1,18 @@
+node_modules
+dist
+build
+coverage
+apps/mobile/android
+apps/mobile/ios
+apps/mobile/vendor
+*.tsbuildinfo
+
+# Pacote de handoff: docs e design são fonte de verdade e não são reformatados.
+design/
+docs/
+CLAUDE.md
+PROGRESS.md
+
+# Cópia VERBATIM de design/design-tokens.ts — formatar quebraria a igualdade
+# byte a byte verificada em apps/mobile/__tests__/design-system.test.tsx.
+apps/mobile/src/design-system/tokens.ts

@@ -1,0 +1,30 @@
+# Postgres de desenvolvimento local.
+# Subir com: npm run db:up  ·  Derrubar com: npm run db:down
+#
+# Dois usuários por desenho (docs/10 §RLS): `ff_migrator` aplica DDL,
+# `ff_app` é o usuário da aplicação e está sujeito a RLS (NOBYPASSRLS).
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    container_name: ff_postgres_dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ff_migrator
+      POSTGRES_PASSWORD: ff_dev_password
+      POSTGRES_DB: family_finance
+      TZ: UTC
+      PGTZ: UTC
+    ports:
+      - '5435:5432'
+    volumes:
+      - ff_pgdata:/var/lib/postgresql/data
+      - ./postgres-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U ff_migrator -d family_finance']
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+volumes:
+  ff_pgdata:

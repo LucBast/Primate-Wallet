@@ -1,0 +1,18 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2023"],
+    "types": ["node"]
+  },
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "tests", "dist", "node_modules"],
+  "references": [
+    { "path": "../../packages/domain" },
+    { "path": "../../packages/validation" },
+    { "path": "../../packages/api-contracts" }
+  ]
+}

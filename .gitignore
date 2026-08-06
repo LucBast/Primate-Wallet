@@ -1,0 +1,48 @@
+# Dependências
+node_modules/
+.npm/
+
+# Build
+dist/
+build/
+coverage/
+*.tsbuildinfo
+
+# Ambiente / segredos — NUNCA commitar
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.mobileprovision
+*.keystore
+!debug.keystore
+google-services.json
+GoogleService-Info.plist
+
+# React Native / mobile
+apps/mobile/android/.gradle/
+apps/mobile/android/app/build/
+apps/mobile/android/build/
+apps/mobile/android/local.properties
+apps/mobile/ios/Pods/
+apps/mobile/ios/build/
+apps/mobile/ios/*.xcworkspace/xcuserdata/
+apps/mobile/ios/*.xcodeproj/xcuserdata/
+.metro-health-check*
+*.hprof
+
+# Sistema / editores
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+
+# Logs e temporários
+*.log
+npm-debug.log*
+yarn-error.log*
+.tmp/
+tmp/
