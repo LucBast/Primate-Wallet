@@ -38,7 +38,13 @@ export const nonNegativeMinorUnitsSchema = minorUnitsSchema.refine(
 );
 
 /** Data de calendário "YYYY-MM-DD" (competência, vencimento, data efetiva). */
-export const isoDateSchema = z.string().refine(isIsoDate, 'Data inválida (esperado YYYY-MM-DD).');
+// O retorno é anotado como `boolean` de propósito: o TypeScript infere
+// predicados de tipo para setas que só repassam um type guard, e isso faria o
+// schema estreitar a saída para `IsoDate` — vazando a marca do domínio para
+// todos os contratos e obrigando o app a conhecê-la.
+export const isoDateSchema = z
+  .string()
+  .refine((value): boolean => isIsoDate(value), 'Data inválida (esperado YYYY-MM-DD).');
 
 /** Instante ISO 8601 completo. */
 export const isoDateTimeSchema = z.iso.datetime({ offset: true });

@@ -37,6 +37,9 @@ import { AccountFormScreen } from '../features/account/AccountFormScreen';
 import { AccountDetailScreen } from '../features/account/AccountDetailScreen';
 import { CategoriesScreen } from '../features/account/CategoriesScreen';
 import * as accountApi from '../features/account/account-api';
+import { useReferenceStore } from '../features/household/reference-store';
+import { PlannedEntryFormScreen } from '../features/planning/PlannedEntryFormScreen';
+import { PlannedEntryDetailScreen } from '../features/planning/PlannedEntryDetailScreen';
 import { PhasePlaceholder } from '../components/PhasePlaceholder';
 import { QuickEntryScreen } from '../features/quick-entry/QuickEntryScreen';
 import { appConfig } from '../services/config';
@@ -121,6 +124,14 @@ function AppFlow(): React.JSX.Element {
   const accessToken = useSessionStore((state) => state.accessToken);
   const activeId = useHouseholdStore((state) => state.activeId);
   const setActive = useHouseholdStore((state) => state.setActive);
+  const reference = useReferenceStore();
+
+  // Contas, categorias e membros alimentam todos os formulários de lançamento.
+  useEffect(() => {
+    if (accessToken !== null && activeId !== null) void reference.load(accessToken, activeId);
+    // `reference.load` é estável no Zustand; depender do objeto inteiro geraria laço.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [accessToken, activeId]);
 
   /** Permissões de conta do membro, para completar a tela 3b. */
   const loadPermissions = useCallback(
@@ -144,6 +155,9 @@ function AppFlow(): React.JSX.Element {
         {({ navigation }) => (
           <AppTabs
             onQuickEntry={() => navigation.navigate('LancamentoRapido')}
+            onNewPlannedEntry={(nature) => navigation.navigate('NovaContaPrevista', { nature })}
+            onSettleEntry={(entry) => navigation.navigate('DarBaixa', { entry })}
+            onOpenPlannedEntry={(entry) => navigation.navigate('DetalheContaPrevista', { entry })}
             onNavigate={(destination) => {
               if (destination === 'Familia') navigation.navigate('Familia');
               else if (destination === 'Sessoes') navigation.navigate('Sessoes');
@@ -265,6 +279,39 @@ function AppFlow(): React.JSX.Element {
 
       <AppStack.Screen name="Categorias">
         {({ navigation }) => <CategoriesScreen onBack={() => navigation.goBack()} />}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="NovaContaPrevista">
+        {({ navigation, route }) => (
+          <PlannedEntryFormScreen
+            nature={route.params.nature}
+            accounts={reference.accounts}
+            categories={reference.categories}
+            members={reference.members}
+            onBack={() => navigation.goBack()}
+            onSaved={() => navigation.goBack()}
+          />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="DetalheContaPrevista">
+        {({ navigation, route }) => (
+          <PlannedEntryDetailScreen
+            entry={route.params.entry}
+            onBack={() => navigation.goBack()}
+            onSettle={(entry) => navigation.navigate('DarBaixa', { entry })}
+          />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="DarBaixa">
+        {() => (
+          <PhasePlaceholder
+            title="Dar baixa"
+            phase="Fase 5 — Baixas"
+            screenshot="design/screenshots/1e-baixa-parcial.png"
+          />
+        )}
       </AppStack.Screen>
 
       <AppStack.Screen name="Aprovacoes">

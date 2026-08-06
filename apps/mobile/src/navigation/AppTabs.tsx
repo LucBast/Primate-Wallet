@@ -12,11 +12,15 @@ import { BottomNav, type NavItemKey } from '../components/BottomNav';
 import { useTheme } from '../design-system/theme';
 import { HomeScreen } from '../features/home/HomeScreen';
 import { PlanningScreen } from '../features/planning/PlanningScreen';
+import type { PlannedEntry, PlannedEntryNature } from '@ff/api-contracts';
 import { TransactionsScreen } from '../features/transactions/TransactionsScreen';
 import { MoreScreen } from '../features/more/MoreScreen';
 
 export type AppTabsProps = {
   readonly onQuickEntry: () => void;
+  readonly onNewPlannedEntry: (nature: PlannedEntryNature) => void;
+  readonly onSettleEntry: (entry: PlannedEntry) => void;
+  readonly onOpenPlannedEntry: (entry: PlannedEntry) => void;
   readonly onNavigate: (
     destination:
       | 'Familia'
@@ -30,13 +34,25 @@ export type AppTabsProps = {
   ) => void;
 };
 
-export function AppTabs({ onQuickEntry, onNavigate }: AppTabsProps): React.JSX.Element {
+export function AppTabs({
+  onQuickEntry,
+  onNavigate,
+  onNewPlannedEntry,
+  onSettleEntry,
+  onOpenPlannedEntry,
+}: AppTabsProps): React.JSX.Element {
   const { colors } = useTheme();
   const [active, setActive] = useState<NavItemKey>('inicio');
 
   const screens: Record<NavItemKey, React.JSX.Element> = {
     inicio: <HomeScreen />,
-    planejamento: <PlanningScreen />,
+    planejamento: (
+      <PlanningScreen
+        onNewEntry={onNewPlannedEntry}
+        onSettle={onSettleEntry}
+        onOpenEntry={onOpenPlannedEntry}
+      />
+    ),
     movimentacoes: <TransactionsScreen />,
     mais: (
       <MoreScreen
