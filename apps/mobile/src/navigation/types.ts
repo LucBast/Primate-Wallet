@@ -4,7 +4,13 @@
  * mesmo destino.
  */
 
-import type { Account, Member, PlannedEntry, PlannedEntryNature } from '@ff/api-contracts';
+import type {
+  Account,
+  Member,
+  PlannedEntry,
+  PlannedEntryNature,
+  Transaction,
+} from '@ff/api-contracts';
 
 export type AuthStackParamList = {
   Login: undefined;
@@ -31,6 +37,8 @@ export type AppStackParamList = {
   NovaContaPrevista: { nature: PlannedEntryNature };
   DetalheContaPrevista: { entry: PlannedEntry };
   DarBaixa: { entry: PlannedEntry };
+  DetalheMovimentacao: { transaction: Transaction };
+  Transferencia: undefined;
   /** Aceite de convite chegando por deep link, já com sessão. */
   Convite: { token: string };
   /** Destinos ainda não entregues; some conforme as fases avançam. */

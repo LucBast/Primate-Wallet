@@ -12,7 +12,7 @@ import { BottomNav, type NavItemKey } from '../components/BottomNav';
 import { useTheme } from '../design-system/theme';
 import { HomeScreen } from '../features/home/HomeScreen';
 import { PlanningScreen } from '../features/planning/PlanningScreen';
-import type { PlannedEntry, PlannedEntryNature } from '@ff/api-contracts';
+import type { PlannedEntry, PlannedEntryNature, Transaction } from '@ff/api-contracts';
 import { TransactionsScreen } from '../features/transactions/TransactionsScreen';
 import { MoreScreen } from '../features/more/MoreScreen';
 
@@ -21,6 +21,7 @@ export type AppTabsProps = {
   readonly onNewPlannedEntry: (nature: PlannedEntryNature) => void;
   readonly onSettleEntry: (entry: PlannedEntry) => void;
   readonly onOpenPlannedEntry: (entry: PlannedEntry) => void;
+  readonly onOpenTransaction: (transaction: Transaction) => void;
   readonly onNavigate: (
     destination:
       | 'Familia'
@@ -40,6 +41,7 @@ export function AppTabs({
   onNewPlannedEntry,
   onSettleEntry,
   onOpenPlannedEntry,
+  onOpenTransaction,
 }: AppTabsProps): React.JSX.Element {
   const { colors } = useTheme();
   const [active, setActive] = useState<NavItemKey>('inicio');
@@ -53,7 +55,7 @@ export function AppTabs({
         onOpenEntry={onOpenPlannedEntry}
       />
     ),
-    movimentacoes: <TransactionsScreen />,
+    movimentacoes: <TransactionsScreen onOpen={onOpenTransaction} />,
     mais: (
       <MoreScreen
         onOpenFamily={() => onNavigate('Familia')}

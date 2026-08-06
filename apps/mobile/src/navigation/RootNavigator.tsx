@@ -40,6 +40,8 @@ import * as accountApi from '../features/account/account-api';
 import { useReferenceStore } from '../features/household/reference-store';
 import { PlannedEntryFormScreen } from '../features/planning/PlannedEntryFormScreen';
 import { PlannedEntryDetailScreen } from '../features/planning/PlannedEntryDetailScreen';
+import { TransactionDetailScreen } from '../features/transactions/TransactionDetailScreen';
+import { TransferScreen } from '../features/transactions/TransferScreen';
 import { PhasePlaceholder } from '../components/PhasePlaceholder';
 import { QuickEntryScreen } from '../features/quick-entry/QuickEntryScreen';
 import { appConfig } from '../services/config';
@@ -158,6 +160,9 @@ function AppFlow(): React.JSX.Element {
             onNewPlannedEntry={(nature) => navigation.navigate('NovaContaPrevista', { nature })}
             onSettleEntry={(entry) => navigation.navigate('DarBaixa', { entry })}
             onOpenPlannedEntry={(entry) => navigation.navigate('DetalheContaPrevista', { entry })}
+            onOpenTransaction={(transaction) =>
+              navigation.navigate('DetalheMovimentacao', { transaction })
+            }
             onNavigate={(destination) => {
               if (destination === 'Familia') navigation.navigate('Familia');
               else if (destination === 'Sessoes') navigation.navigate('Sessoes');
@@ -311,6 +316,21 @@ function AppFlow(): React.JSX.Element {
             phase="Fase 5 — Baixas"
             screenshot="design/screenshots/1e-baixa-parcial.png"
           />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="DetalheMovimentacao">
+        {({ navigation, route }) => (
+          <TransactionDetailScreen
+            transaction={route.params.transaction}
+            onBack={() => navigation.goBack()}
+          />
+        )}
+      </AppStack.Screen>
+
+      <AppStack.Screen name="Transferencia">
+        {({ navigation }) => (
+          <TransferScreen onBack={() => navigation.goBack()} onSaved={() => navigation.goBack()} />
         )}
       </AppStack.Screen>
 

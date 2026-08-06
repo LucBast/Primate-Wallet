@@ -26,6 +26,11 @@ import { createAccountService, type AccountService } from '../modules/account/se
 import { registerAccountRoutes } from '../modules/account/routes.js';
 import { createPlanningService, type PlanningService } from '../modules/planning/service.js';
 import { registerPlanningRoutes } from '../modules/planning/routes.js';
+import {
+  createTransactionService,
+  type TransactionService,
+} from '../modules/transaction/service.js';
+import { registerTransactionRoutes } from '../modules/transaction/routes.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -51,6 +56,7 @@ export type BuiltServer = {
   readonly households: HouseholdService;
   readonly accounts: AccountService;
   readonly planning: PlanningService;
+  readonly transactions: TransactionService;
 };
 
 export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
@@ -115,5 +121,8 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
   const planning = createPlanningService({ db });
   await registerPlanningRoutes(app, { planning, authenticate });
 
-  return { app, auth, households, accounts, planning };
+  const transactions = createTransactionService({ db });
+  await registerTransactionRoutes(app, { transactions, authenticate });
+
+  return { app, auth, households, accounts, planning, transactions };
 }
