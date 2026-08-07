@@ -58,6 +58,12 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **3b · Permissões do membro (claro)** — bate com o screenshot depois de três
+  correções: "Exigir aprovação" vira select em pílula pendingSoft (era fila de
+  chips), "Valor limite sem aprovação" vira linha do mesmo card com o valor à
+  direita, e o rodapé perde a divisória. A lista de contas autorizadas aparece
+  quando o membro tem permissão concedida; sem nenhuma, todas caem no bloco
+  "Sem acesso", como manda o próprio design.
 - **3a · Membros (claro)** — bate com o screenshot depois de quatro correções:
   lápis no lugar do botão "Editar", "· você" discreto ao lado do nome,
   "Revogar" como texto danger e rodapé sem divisória. **Falta o chip

@@ -17,7 +17,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, TextInput, View, type TextStyle } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { ApprovalMode, HouseholdRole, Member } from '@ff/api-contracts';
 import { formatMoney, minor, parseMoney } from '@ff/domain';
@@ -26,11 +26,12 @@ import { Banner } from '../../components/Banner';
 import { Button } from '../../components/Button';
 import { Card, SectionLabel } from '../../components/Card';
 import { ChoiceChip } from '../../components/Chip';
-import { Field } from '../../components/Field';
+import { OptionSheet } from '../../components/OptionSheet';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { Toggle } from '../../components/Toggle';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
+import { type as typeTokens } from '../../design-system/tokens';
 import { ROLE_LABEL } from './roles';
 
 /** Permissão de uma conta para este membro (preenchida a partir da Fase 2). */
@@ -76,8 +77,9 @@ export function MemberPermissionsScreen({
   onSave,
   onSuspend,
 }: MemberPermissionsScreenProps): React.JSX.Element {
-  const { colors, layout, spacing } = useTheme();
+  const { colors, layout, radius, spacing } = useTheme();
   const insets = useSafeAreaInsets();
+  const [approvalSheet, setApprovalSheet] = useState(false);
 
   const [role, setRole] = useState<HouseholdRole>(member.role);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>(member.approvalMode);
@@ -236,31 +238,42 @@ export function MemberPermissionsScreen({
         <View style={{ marginTop: spacing.xl }}>
           <SectionLabel>APROVAÇÃO DE LANÇAMENTOS</SectionLabel>
           <Card>
+            {/* No screenshot é um select em pílula pendingSoft à direita do
+                rótulo, não uma fila de chips. */}
             <View style={styles.approvalRow}>
               <Text variant="rowTitle">Exigir aprovação</Text>
-              <View style={styles.approvalChips}>
-                {APPROVAL_OPTIONS.map((option) => (
-                  <ChoiceChip
-                    key={option.value}
-                    testID={`aprovacao-${option.value}`}
-                    label={option.label}
-                    selected={approvalMode === option.value}
-                    tone="pending"
-                    onPress={() => setApprovalMode(option.value)}
-                  />
-                ))}
-              </View>
+              <Pressable
+                testID="aprovacao-modo"
+                accessibilityRole="button"
+                accessibilityLabel={`Exigir aprovação: ${APPROVAL_OPTIONS.find((item) => item.value === approvalMode)?.label ?? 'Nunca'}`}
+                hitSlop={8}
+                onPress={() => setApprovalSheet(true)}
+                style={[
+                  styles.approvalSelect,
+                  { backgroundColor: colors.pendingSoft, borderRadius: radius.md },
+                ]}
+              >
+                <Text variant="chip" tone="pending">
+                  {`${APPROVAL_OPTIONS.find((item) => item.value === approvalMode)?.label ?? 'Nunca'} ▾`}
+                </Text>
+              </Pressable>
             </View>
 
+            {/* "Valor limite sem aprovação   R$ 50,00" é outra linha do mesmo
+                card, e só existe no modo "Acima de um valor" (CLARIFICATIONS-02
+                item 1: nos demais a linha some, não fica desabilitada). */}
             {approvalMode === 'ABOVE_THRESHOLD' ? (
-              <View style={{ marginTop: spacing.md }}>
-                <Field
-                  label="Valor limite sem aprovação"
+              <View style={[styles.approvalRow, { marginTop: spacing.md }]}>
+                <Text variant="rowTitle">Valor limite sem aprovação</Text>
+                <TextInput
                   testID="campo-limite"
+                  accessibilityLabel="Valor limite sem aprovação"
                   value={thresholdText}
                   onChangeText={setThresholdText}
                   keyboardType="decimal-pad"
-                  placeholder="50,00"
+                  placeholder="R$ 50,00"
+                  placeholderTextColor={colors.textSecondary}
+                  style={[typeTokens.moneyRow as TextStyle, { color: colors.textPrimary }]}
                 />
               </View>
             ) : null}
@@ -282,12 +295,20 @@ export function MemberPermissionsScreen({
         )}
       </ScrollView>
 
+      <OptionSheet
+        visible={approvalSheet}
+        title="Exigir aprovação"
+        options={APPROVAL_OPTIONS.map((item) => ({ value: item.value, label: item.label }))}
+        value={approvalMode}
+        onSelect={(value) => setApprovalMode(value as ApprovalMode)}
+        onClose={() => setApprovalSheet(false)}
+      />
+
       <View
         style={[
           styles.footer,
           {
             backgroundColor: colors.surface,
-            borderTopColor: colors.border,
             paddingBottom: Math.max(spacing.lg, insets.bottom),
             paddingHorizontal: layout.screenPaddingH,
           },
@@ -327,10 +348,14 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
   },
   accountTexts: { flex: 1, gap: 2 },
-  approvalRow: { gap: 10 },
-  approvalChips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  approvalRow: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 10,
+    justifyContent: 'space-between',
+  },
+  approvalSelect: { paddingHorizontal: 11, paddingVertical: 5 },
   footer: {
-    borderTopWidth: 1,
     flexDirection: 'row',
     gap: 10,
     paddingTop: 12,
