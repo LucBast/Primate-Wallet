@@ -58,6 +58,15 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **8b · Convite de membro (claro)** — também era "sem screenshot dedicado" e
+  foi refeita: e-mail antes do nome (é ele que identifica o convite), rótulo
+  "Nome de exibição", e a correção que o `CLARIFICATIONS-02` pediu — o chip é
+  **"Filho"**, e "supervisionado" virou um toggle num card próprio, com
+  "Exigir aprovação" e o valor limite dentro dele; antes o app derivava
+  `isSupervised` do papel e mostrava "Filho supervisionado" como se fosse um
+  quinto papel. Ganhou também o card "Prévia do convite" (texto derivado, não
+  persistido) e perdeu o card de habilidades por papel, que não existe no
+  design.
 - **8a · Criação de família (claro)** — a tela existia como formulário genérico
   ("sem screenshot dedicado"); o Turno 8 trouxe o screenshot e ela foi refeita:
   ícone de casa em brandSoft, título e subtítulo verbatim, helper "é o nome que
