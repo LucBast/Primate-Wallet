@@ -6,7 +6,7 @@
 - Fases concluídas: **0, 1, 2, 3, 4, 5, 6, 7**
 - Última atualização: 2026-08-06
 - Responsável: Claude Code
-- Repositório: https://github.com/LucBast/Primte-Wallet (branch `main`)
+- Repositório: https://github.com/LucBast/Primate-Wallet (branch `main`)
 
 ## Gate de fidelidade visual
 
