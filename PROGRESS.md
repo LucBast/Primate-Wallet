@@ -58,6 +58,13 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **2b · Nova conta (claro)** — bate com o screenshot depois de sete correções:
+  título fixo "Nova conta" (o formulário é um só; quem muda de nome é o CTA),
+  Instituição e Titular dividindo a linha, Titular e "Quem pode ver e usar"
+  como selects — este com a lista das opções embaixo —, banner do cartão com a
+  copy exata, campos do cartão distribuídos como no design (Bandeira | Final,
+  Limite | Fecha dia | Vence dia), "Conta padrão para pagar a fatura", e os
+  blocos Cor (swatches, guardando o NOME do token) e Moeda, que faltavam.
 - **2a · Lista de contas (claro)** — bate com o screenshot depois de seis
   correções: título "Contas" (não "Contas e cartões"), "+ Nova conta" como botão
   primário em brand, rótulos do resumo em caixa alta com "DÍVIDA EM CARTÕES" em

@@ -14,7 +14,14 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Account, AccountType, Member, VisibilityScope } from '@ff/api-contracts';
 import { parseMoney } from '@ff/domain';
@@ -24,7 +31,9 @@ import { Card, SectionLabel } from '../../components/Card';
 import { ChoiceChip } from '../../components/Chip';
 import { Field } from '../../components/Field';
 import { MoneyInput } from '../../components/MoneyInput';
+import { OptionSheet } from '../../components/OptionSheet';
 import { ScreenHeader } from '../../components/ScreenHeader';
+import { SelectField } from '../../components/SelectField';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { ApiRequestError } from '../../services/api-client';
@@ -49,6 +58,14 @@ const VISIBILITIES: ReadonlyArray<{ value: VisibilityScope; label: string }> = [
   { value: 'OWNER_ONLY', label: 'Só eu' },
 ];
 
+/**
+ * Swatches de cor da conta (screenshot 2b). Guardamos o NOME do token, nunca o
+ * hex — é o que faz o tema escuro continuar funcionando sozinho
+ * (design/CLARIFICATIONS-02 item 3).
+ */
+const SWATCHES = ['cardNavy', 'cardWine', 'brand', 'warning'] as const;
+type SwatchKey = (typeof SWATCHES)[number];
+
 export function AccountFormScreen({
   onBack,
   onSaved,
@@ -56,7 +73,7 @@ export function AccountFormScreen({
   readonly onBack: () => void;
   readonly onSaved: (account: Account) => void;
 }): React.JSX.Element {
-  const { colors, layout, spacing } = useTheme();
+  const { colors, layout, radius, spacing } = useTheme();
   const insets = useSafeAreaInsets();
   const accessToken = useSessionStore((state) => state.accessToken);
   const household = useActiveHousehold();
@@ -75,6 +92,10 @@ export function AccountFormScreen({
   const [creditLimitText, setCreditLimitText] = useState('');
   const [closingDay, setClosingDay] = useState('');
   const [dueDay, setDueDay] = useState('');
+  const [defaultPaymentAccountId, setDefaultPaymentAccountId] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [color, setColor] = useState<SwatchKey>('cardNavy');
+  const [sheet, setSheet] = useState<'titular' | 'visibilidade' | 'contaFatura' | null>(null);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -86,6 +107,11 @@ export function AccountFormScreen({
     void listMembers(accessToken, household.id)
       .then(setMembers)
       .catch(() => setMembers([]));
+    // Contas que podem pagar a fatura: qualquer uma que não seja cartão.
+    void api
+      .listAccounts(accessToken, household.id)
+      .then((list) => setAccounts(list.filter((item) => item.accountType !== 'CREDIT_CARD')))
+      .catch(() => setAccounts([]));
   }, [accessToken, household]);
 
   const canSubmit = useMemo(() => {
@@ -106,6 +132,7 @@ export function AccountFormScreen({
         currencyCode: household.currencyCode,
         openingBalanceMinor: isCard ? 0 : openingBalanceMinor,
         visibilityScope: visibility,
+        color,
         ...(institution.trim() === '' ? {} : { institutionName: institution.trim() }),
         ...(primaryMemberId === null ? {} : { primaryMemberId }),
         ...(visibility === 'SELECTED_MEMBERS' ? { selectedMemberIds: selectedMembers } : {}),
@@ -116,6 +143,9 @@ export function AccountFormScreen({
               creditLimitMinor: parseMoney(creditLimitText),
               closingDay: Number.parseInt(closingDay, 10),
               dueDay: Number.parseInt(dueDay, 10),
+              ...(defaultPaymentAccountId === null
+                ? {}
+                : { defaultPaymentAccountId: defaultPaymentAccountId }),
             }
           : {}),
       });
@@ -131,7 +161,9 @@ export function AccountFormScreen({
     cardBrand,
     cardLastFour,
     closingDay,
+    color,
     creditLimitText,
+    defaultPaymentAccountId,
     dueDay,
     household,
     institution,
@@ -149,7 +181,9 @@ export function AccountFormScreen({
       style={[styles.flex, { backgroundColor: colors.surface }]}
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <ScreenHeader title={isCard ? 'Novo cartão' : 'Nova conta'} onBack={onBack} size="screen" />
+      {/* O título é "Nova conta" mesmo com o tipo Cartão: o formulário é UM só
+          (invariante nº 2), e é o CTA que muda de nome. */}
+      <ScreenHeader title="Nova conta" onBack={onBack} size="screen" />
 
       <ScrollView
         contentContainerStyle={[
@@ -180,14 +214,30 @@ export function AccountFormScreen({
             autoCapitalize="words"
             placeholder={isCard ? 'Cartão Azul' : 'Conta Corrente'}
           />
-          <Field
-            label="Instituição"
-            testID="campo-instituicao"
-            value={institution}
-            onChangeText={setInstitution}
-            autoCapitalize="words"
-            placeholder="Banco Azul"
-          />
+          {/* Instituição e titular dividem a linha, como no screenshot. */}
+          <View style={styles.dayRow}>
+            <View style={styles.wideField}>
+              <Field
+                label="Instituição"
+                testID="campo-instituicao"
+                value={institution}
+                onChangeText={setInstitution}
+                autoCapitalize="words"
+                placeholder="Banco Azul"
+              />
+            </View>
+            <View style={styles.dayField}>
+              <SelectField
+                testID="campo-titular"
+                label="Titular"
+                value={
+                  members.find((member) => member.id === primaryMemberId)?.displayName ?? 'Escolher'
+                }
+                placeholder={primaryMemberId === null}
+                onPress={() => setSheet('titular')}
+              />
+            </View>
+          </View>
         </View>
 
         {isCard ? null : (
@@ -205,37 +255,45 @@ export function AccountFormScreen({
         {isCard ? (
           <View style={{ marginTop: spacing.xl }}>
             <Banner
-              kind="info"
+              kind="brand"
               testID="banner-cartao"
-              message="Campos do cartão: usamos só o que aparece na fatura para organizar seus gastos."
+              message="Campos do cartão — aparecem só quando o tipo é Cartão de crédito"
             />
 
             <View style={{ gap: spacing.md, marginTop: spacing.md }}>
-              <Field
-                label="Bandeira"
-                testID="campo-bandeira"
-                value={cardBrand}
-                onChangeText={setCardBrand}
-                autoCapitalize="words"
-                placeholder="Visa"
-              />
-              <Field
-                label="Final (4 dígitos)"
-                testID="campo-final"
-                value={cardLastFour}
-                onChangeText={(text) => setCardLastFour(text.replace(/\D/g, '').slice(0, 4))}
-                keyboardType="number-pad"
-                placeholder="4412"
-              />
-              <Field
-                label="Limite"
-                testID="campo-limite"
-                value={creditLimitText}
-                onChangeText={setCreditLimitText}
-                keyboardType="decimal-pad"
-                placeholder="5.000,00"
-              />
               <View style={styles.dayRow}>
+                <View style={styles.dayField}>
+                  <Field
+                    label="Bandeira"
+                    testID="campo-bandeira"
+                    value={cardBrand}
+                    onChangeText={setCardBrand}
+                    autoCapitalize="words"
+                    placeholder="Visa"
+                  />
+                </View>
+                <View style={styles.wideField}>
+                  <Field
+                    label="Final (4 dígitos)"
+                    testID="campo-final"
+                    value={cardLastFour}
+                    onChangeText={(text) => setCardLastFour(text.replace(/\D/g, '').slice(0, 4))}
+                    keyboardType="number-pad"
+                    placeholder="4412"
+                  />
+                </View>
+              </View>
+              <View style={styles.dayRow}>
+                <View style={styles.wideField}>
+                  <Field
+                    label="Limite"
+                    testID="campo-limite"
+                    value={creditLimitText}
+                    onChangeText={setCreditLimitText}
+                    keyboardType="decimal-pad"
+                    placeholder="5.000,00"
+                  />
+                </View>
                 <View style={styles.dayField}>
                   <Field
                     label="Fecha dia"
@@ -257,31 +315,30 @@ export function AccountFormScreen({
                   />
                 </View>
               </View>
-            </View>
-
-            <View style={{ marginTop: spacing.md }}>
-              <Banner
-                kind="warning"
-                testID="banner-seguranca"
-                message="Nunca pedimos número completo, CVV ou senha do cartão."
+              <SelectField
+                testID="campo-conta-fatura"
+                label="Conta padrão para pagar a fatura"
+                value={
+                  accounts.find((item) => item.id === defaultPaymentAccountId)?.name ?? 'Escolher'
+                }
+                placeholder={defaultPaymentAccountId === null}
+                onPress={() => setSheet('contaFatura')}
               />
             </View>
           </View>
         ) : null}
 
-        <View style={{ marginTop: spacing.xl }}>
-          <SectionLabel>QUEM PODE VER E USAR</SectionLabel>
-          <View style={styles.chips}>
-            {VISIBILITIES.map((option) => (
-              <ChoiceChip
-                key={option.value}
-                testID={`visibilidade-${option.value}`}
-                label={option.label}
-                selected={visibility === option.value}
-                onPress={() => setVisibility(option.value)}
-              />
-            ))}
-          </View>
+        <View style={{ marginTop: spacing.md }}>
+          {/* Um select com a lista das opções embaixo, como no screenshot. */}
+          <SelectField
+            testID="campo-visibilidade"
+            label="Quem pode ver e usar"
+            value={VISIBILITIES.find((item) => item.value === visibility)?.label ?? 'Família'}
+            onPress={() => setSheet('visibilidade')}
+          />
+          <Text variant="rowMeta" tone="secondary" style={styles.helper}>
+            {VISIBILITIES.map((item) => item.label).join(' · ')}
+          </Text>
 
           {visibility === 'SELECTED_MEMBERS' ? (
             <View style={{ marginTop: spacing.md }}>
@@ -311,27 +368,63 @@ export function AccountFormScreen({
               </Card>
             </View>
           ) : null}
+        </View>
 
-          {members.length === 0 ? null : (
-            <View style={{ marginTop: spacing.md }}>
-              <SectionLabel>TITULAR</SectionLabel>
-              <View style={styles.chips}>
-                {members
-                  .filter((member) => member.status === 'ACTIVE')
-                  .map((member) => (
-                    <ChoiceChip
-                      key={member.id}
-                      testID={`titular-${member.id}`}
-                      label={member.displayName}
-                      selected={primaryMemberId === member.id}
-                      onPress={() =>
-                        setPrimaryMemberId((current) => (current === member.id ? null : member.id))
-                      }
-                    />
-                  ))}
+        {/* Cor e moeda dividem a linha final (screenshot 2b). */}
+        <View style={[styles.dayRow, { marginTop: spacing.md }]}>
+          <View style={styles.wideField}>
+            <View
+              style={[
+                styles.swatchCard,
+                {
+                  backgroundColor: colors.surfaceElevated,
+                  borderColor: colors.border,
+                  borderRadius: radius.lg,
+                },
+              ]}
+            >
+              <Text variant="label" tone="secondary">
+                Cor
+              </Text>
+              <View style={styles.swatches}>
+                {SWATCHES.map((key) => (
+                  <Pressable
+                    key={key}
+                    testID={`cor-${key}`}
+                    accessibilityRole="button"
+                    accessibilityLabel={`Cor ${key}`}
+                    accessibilityState={{ selected: color === key }}
+                    onPress={() => setColor(key)}
+                    style={[
+                      styles.swatch,
+                      {
+                        backgroundColor: colors[key],
+                        borderColor: color === key ? colors.textPrimary : 'transparent',
+                        borderRadius: radius.pill,
+                      },
+                    ]}
+                  />
+                ))}
               </View>
             </View>
-          )}
+          </View>
+          <View style={styles.dayField}>
+            <SelectField
+              testID="campo-moeda"
+              label="Moeda"
+              value={`${household?.currencyCode ?? 'BRL'} — Real`}
+              onPress={() => undefined}
+            />
+          </View>
+        </View>
+
+        {/* A microcopy de segurança fecha a tela, antes do CTA. */}
+        <View style={{ marginTop: spacing.md }}>
+          <Banner
+            kind="warning"
+            testID="banner-seguranca"
+            message="Nunca pedimos número completo, CVV ou senha do cartão."
+          />
         </View>
 
         {error === null ? null : (
@@ -341,12 +434,38 @@ export function AccountFormScreen({
         )}
       </ScrollView>
 
+      <OptionSheet
+        visible={sheet === 'titular'}
+        title="Titular"
+        options={members
+          .filter((member) => member.status === 'ACTIVE')
+          .map((member) => ({ value: member.id, label: member.displayName }))}
+        value={primaryMemberId}
+        onSelect={setPrimaryMemberId}
+        onClose={() => setSheet(null)}
+      />
+      <OptionSheet
+        visible={sheet === 'visibilidade'}
+        title="Quem pode ver e usar"
+        options={VISIBILITIES.map((item) => ({ value: item.value, label: item.label }))}
+        value={visibility}
+        onSelect={(value) => setVisibility(value as VisibilityScope)}
+        onClose={() => setSheet(null)}
+      />
+      <OptionSheet
+        visible={sheet === 'contaFatura'}
+        title="Conta padrão para pagar a fatura"
+        options={accounts.map((item) => ({ value: item.id, label: item.name }))}
+        value={defaultPaymentAccountId}
+        onSelect={setDefaultPaymentAccountId}
+        onClose={() => setSheet(null)}
+      />
+
       <View
         style={[
           styles.footer,
           {
             backgroundColor: colors.surface,
-            borderTopColor: colors.border,
             paddingBottom: Math.max(spacing.lg, insets.bottom),
             paddingHorizontal: layout.screenPaddingH,
           },
@@ -370,5 +489,11 @@ const styles = StyleSheet.create({
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   dayRow: { flexDirection: 'row', gap: 10 },
   dayField: { flex: 1 },
-  footer: { borderTopWidth: 1, paddingTop: 12 },
+  wideField: { flex: 1.6 },
+  helper: { marginLeft: 14, marginTop: 4 },
+  // Mesma caixa do Field (COMPONENT-SPECS §Field: raio 14, borda 1, 9×14).
+  swatchCard: { borderWidth: 1, gap: 6, paddingHorizontal: 14, paddingVertical: 9 },
+  swatches: { flexDirection: 'row', gap: 10 },
+  swatch: { borderWidth: 2, height: 24, width: 24 },
+  footer: { paddingTop: 12 },
 });
