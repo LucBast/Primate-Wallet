@@ -16,6 +16,8 @@ export type ScreenHeaderProps = {
   readonly onBack?: (() => void) | undefined;
   readonly left?: React.ReactNode | undefined;
   readonly right?: React.ReactNode | undefined;
+  /** Torna o subtítulo tocável — é o seletor "Família Souza ▾" do Início. */
+  readonly onPressSubtitle?: (() => void) | undefined;
   /** `pageTitle` (22) nas telas de topo; `screenTitle` (17) nas internas. */
   readonly size?: 'page' | 'screen' | undefined;
 };
@@ -26,6 +28,7 @@ export function ScreenHeader({
   onBack,
   left,
   right,
+  onPressSubtitle,
   size = 'page',
 }: ScreenHeaderProps): React.JSX.Element {
   const { colors, spacing, layout } = useTheme();
@@ -55,10 +58,22 @@ export function ScreenHeader({
 
       <View style={styles.texts}>
         <Text variant={size === 'page' ? 'pageTitle' : 'screenTitle'}>{title}</Text>
-        {subtitle === undefined ? null : (
+        {subtitle === undefined ? null : onPressSubtitle === undefined ? (
           <Text variant="rowMeta" tone="secondary">
             {subtitle}
           </Text>
+        ) : (
+          <Pressable
+            testID="trocar-familia"
+            accessibilityRole="button"
+            accessibilityLabel="Trocar de família"
+            onPress={onPressSubtitle}
+            hitSlop={8}
+          >
+            <Text variant="rowMeta" tone="secondary">
+              {subtitle}
+            </Text>
+          </Pressable>
         )}
       </View>
 

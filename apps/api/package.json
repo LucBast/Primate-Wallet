@@ -13,7 +13,8 @@
     "test:watch": "vitest",
     "migrate:up": "node scripts/migrate.mjs up",
     "migrate:down": "node scripts/migrate.mjs down",
-    "migrate:reset": "node scripts/migrate.mjs reset"
+    "migrate:reset": "node scripts/migrate.mjs reset",
+    "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

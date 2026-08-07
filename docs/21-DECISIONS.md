@@ -49,6 +49,12 @@ Registro das decisões tomadas durante a implementação, conforme o processo do
 | D-038 | Tokens de sessão no **Keychain/Keystore** (`react-native-keychain`), com `WHEN_UNLOCKED_THIS_DEVICE_ONLY` | docs/10 §8: nenhum segredo em AsyncStorage ou arquivo. O segredo não sai do aparelho nem por backup. |
 | D-039 | Porta do Postgres de desenvolvimento: **5435**; porta da API: **3400** | 5432–5434 e 3333 já estavam ocupadas na máquina de desenvolvimento. Valores só de desenvolvimento; homologação e produção usam a configuração do ambiente. |
 
+| D-040 | Os caminhos do Gradle apontam para o `node_modules` da **raiz do monorepo** (`../../../node_modules`), não para `apps/mobile/node_modules` | O npm workspaces iça as dependências para a raiz, mas o template do React Native assume `node_modules` ao lado do `package.json` do app. Sem isso o build falha em `com.facebook.react.settings`. Vale para `settings.gradle` e para o bloco `react {}` de `app/build.gradle`. |
+| D-041 | `@babel/plugin-transform-export-namespace-from` é declarado explicitamente em `apps/mobile/babel.config.js` | O preset `@react-native/babel-preset` 0.86 deixou de incluir esse transform, e o zod 4 usa `export * as core from …` nos próprios arquivos. Sem o plugin o Metro derruba o bundle inteiro com SyntaxError dentro de `node_modules/zod`. Fixado na linha 7.x porque a 8.x exige `@babel/core` 8. |
+| D-042 | A altura da linha de valor do `Field` é fixada em 18 (`spec-values.fieldValueHeight`), não deixada para as métricas da fonte | COMPONENT-SPECS §Field dá padding e tamanhos, não a altura. Medindo `6a-login.png` o card fecha em 53dp (interior 51 = 9 + 15 + 18 + 9). O valor anterior (`minTouch − 18`) não vinha de especificação nenhuma e deixava o campo 8dp mais alto que o design. |
+| D-043 | O slot central da `BottomNav` tem largura fixa de 54 em vez de dividir os cinco espaços por igual | Com divisão igual sobram 75dp por item e "Movimentações" é truncado; o screenshot mostra o rótulo inteiro. Com 54 no centro sobram 81dp, suficientes. |
+| D-044 | Nome duplicado de categoria devolve `VALIDATION_ERROR`, não 500 | A família nasce com categorias padrão, então repetir um nome é erro de usuário. A violação de unicidade subia como `INTERNAL_ERROR` e a tela mostrava "tente de novo" para sempre. |
+
 ## Decisões que exigem validação humana antes de produção
 
 - Provedor de e-mail transacional (envio de confirmação e magic link).

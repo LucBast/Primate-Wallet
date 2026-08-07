@@ -5,6 +5,8 @@
  * Configuração inválida derruba o processo antes de qualquer conexão.
  */
 
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import { config as loadDotenv } from 'dotenv';
 import * as Sentry from '@sentry/node';
 import { ConfigError, loadConfig } from './config/env.js';
@@ -13,7 +15,13 @@ import { createDatabase } from './db/pool.js';
 import { createLogMailer } from './modules/auth/mailer.js';
 import { buildServer } from './http/server.js';
 
-loadDotenv({ quiet: true });
+// O `.env` de desenvolvimento fica na raiz do monorepo, não em apps/api, e o
+// processo pode ser iniciado de qualquer cwd (raiz via workspaces, ou apps/api).
+// Resolver a partir do próprio módulo mantém os dois casos iguais — é o mesmo
+// caminho usado por scripts/migrate.mjs e tests/setup.ts. Em produção as
+// variáveis vêm do ambiente e o dotenv não sobrescreve o que já está definido.
+const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+loadDotenv({ path: path.join(repoRoot, '.env'), quiet: true });
 
 async function main(): Promise<void> {
   const config = loadConfig();

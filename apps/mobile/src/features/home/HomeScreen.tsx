@@ -17,10 +17,10 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import type { Dashboard, ReportMode } from '@ff/api-contracts';
-import { addMonths, formatDate, formatMoney, isoDate, minor, monthRange } from '@ff/domain';
+import { addMonths, formatMoney, isoDate, minor, monthRange } from '@ff/domain';
 import { Avatar } from '../../components/Avatar';
 import { Banner } from '../../components/Banner';
-import { Card, IconBadge, ListRow, SectionLabel } from '../../components/Card';
+import { Card, IconBadge, ListRow } from '../../components/Card';
 import { SegmentedControl } from '../../components/Chip';
 import { ProgressBar } from '../../components/ProgressBar';
 import { ScreenHeader } from '../../components/ScreenHeader';
@@ -33,7 +33,31 @@ import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold, useHouseholdStore } from '../household/household-store';
 import * as api from './report-api';
 
-const MONTH_FORMAT = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' });
+/** Seletor de mês do header: "Ago 2026" (SCREEN-SPECS §1b, "‹ Ago 2026 ›"). */
+const MONTH_SHORT = new Intl.DateTimeFormat('pt-BR', { month: 'short', timeZone: 'UTC' });
+/** Rótulo à direita de "Previsto × realizado": "agosto", como no screenshot. */
+const MONTH_LONG = new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'UTC' });
+/** Meta das linhas de compromisso: "sáb, 08/08" (screenshot 1b-inicio.png). */
+const DUE_FORMAT = new Intl.DateTimeFormat('pt-BR', {
+  weekday: 'short',
+  day: '2-digit',
+  month: '2-digit',
+  timeZone: 'UTC',
+});
+
+function monthDate(iso: string): Date {
+  return new Date(`${iso}T12:00:00Z`);
+}
+
+function monthChip(iso: string): string {
+  const short = MONTH_SHORT.format(monthDate(iso)).replace('.', '');
+  return `${short.charAt(0).toUpperCase()}${short.slice(1)} ${monthDate(iso).getUTCFullYear()}`;
+}
+
+function dueLabel(iso: string): string {
+  // pt-BR devolve "sáb., 08/08"; o screenshot não tem o ponto do dia da semana.
+  return DUE_FORMAT.format(monthDate(iso)).replace('.,', ',');
+}
 
 export type HomeScreenProps = {
   readonly onOpenPlanning: () => void;
@@ -96,8 +120,11 @@ export function HomeScreen({
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
       <ScreenHeader
         title={`Olá, ${firstName}`}
-        subtitle={household?.name}
-        left={<Avatar name={profile?.displayName ?? '?'} seed={profile?.id ?? ''} />}
+        // O screenshot mostra "Família Souza ▾" sempre — o ▾ é o seletor de
+        // família, não um enfeite que aparece só quando há mais de uma.
+        subtitle={`${household?.name ?? 'Família'} ▾`}
+        onPressSubtitle={households.length > 1 ? onSwitchHousehold : undefined}
+        left={<Avatar name={profile?.displayName ?? '?'} tone="brand" />}
         right={
           <Pressable
             testID="abrir-notificacoes"
@@ -128,21 +155,6 @@ export function HomeScreen({
           />
         }
       >
-        {households.length > 1 ? (
-          <Pressable
-            testID="trocar-familia"
-            accessibilityRole="button"
-            accessibilityLabel="Trocar de família"
-            onPress={onSwitchHousehold}
-            hitSlop={8}
-            style={{ marginBottom: spacing.sm }}
-          >
-            <Text variant="rowTitle" tone="brand">
-              {`${household?.name ?? 'Família'} ▾`}
-            </Text>
-          </Pressable>
-        ) : null}
-
         <View style={styles.controls}>
           <View style={styles.segment}>
             <SegmentedControl
@@ -175,9 +187,7 @@ export function HomeScreen({
             >
               <Prev size={iconSize.nav} color={colors.textSecondary} />
             </Pressable>
-            <Text variant="chip">
-              {MONTH_FORMAT.format(new Date(`${range.start}T12:00:00Z`)).replace('.', '')}
-            </Text>
+            <Text variant="chip">{monthChip(range.start)}</Text>
             <Pressable
               testID="mes-proximo"
               accessibilityRole="button"
@@ -229,7 +239,7 @@ export function HomeScreen({
                 <View style={styles.cardHeader}>
                   <Text variant="rowTitle">Previsto × realizado</Text>
                   <Text variant="rowMeta" tone="secondary">
-                    {MONTH_FORMAT.format(new Date(`${range.start}T12:00:00Z`)).replace('.', '')}
+                    {MONTH_LONG.format(monthDate(range.start))}
                   </Text>
                 </View>
 
@@ -298,90 +308,119 @@ export function HomeScreen({
               >
                 <Banner
                   kind="error"
-                  message={`● ${data.overdueCount} ${data.overdueCount === 1 ? 'conta vencida' : 'contas vencidas'} · ${formatMoney(minor(data.overdueMinor))} — Resolver ›`}
+                  message={`● ${data.overdueCount} ${data.overdueCount === 1 ? 'conta vencida' : 'contas vencidas'} · ${formatMoney(minor(data.overdueMinor))}`}
+                  actionLabel="Resolver ›"
                 />
               </Pressable>
             )}
 
             {/* 6. Próximos compromissos */}
-            <View style={{ marginTop: spacing.xl }}>
-              <View style={styles.cardHeader}>
-                <SectionLabel>PRÓXIMOS COMPROMISSOS</SectionLabel>
-                <Pressable
-                  testID="ver-todos"
-                  accessibilityRole="button"
-                  accessibilityLabel="Ver todos os compromissos"
-                  hitSlop={8}
-                  onPress={onOpenPlanning}
-                >
-                  <Text variant="rowMeta" tone="brand">
-                    Ver todos ›
-                  </Text>
-                </Pressable>
-              </View>
-
+            <View style={{ marginTop: spacing.md }}>
               {data.upcoming.length === 0 ? (
                 <EmptyState
                   title="Nada previsto"
                   subtitle="Cadastre contas a pagar e a receber para acompanhar o mês."
                 />
               ) : (
+                /* No screenshot o título fica DENTRO do card, em caixa normal,
+                   com "Ver todos ›" na mesma linha — não é um SectionLabel em
+                   caixa alta acima do card. */
                 <Card padded={false} testID="card-compromissos">
-                  {data.upcoming.map((item, index) => (
-                    <ListRow
-                      key={item.id}
-                      first={index === 0}
-                      testID={`compromisso-${item.id}`}
-                      title={item.description}
-                      meta={[
-                        item.overdue ? 'vencida' : `vence ${formatDate(isoDate(item.dueDate))}`,
-                        item.meta,
-                      ]
-                        .filter((part): part is string => Boolean(part))
-                        .join(' · ')}
-                      metaTone={item.overdue ? 'danger' : 'secondary'}
+                  <View style={[styles.cardHeader, styles.innerHeader]}>
+                    <Text variant="rowTitle">Próximos compromissos</Text>
+                    <Pressable
+                      testID="ver-todos"
+                      accessibilityRole="button"
+                      accessibilityLabel="Ver todos os compromissos"
+                      hitSlop={8}
                       onPress={onOpenPlanning}
-                      right={
-                        <Text
-                          variant="moneyRow"
-                          tone={item.nature === 'RECEIVABLE' ? 'income' : 'expense'}
-                        >
-                          {formatMoney(minor(item.amountMinor))}
-                        </Text>
-                      }
-                    />
-                  ))}
+                    >
+                      <Text variant="rowMeta" tone="brand">
+                        Ver todos ›
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  {data.upcoming.map((item) => {
+                    const receita = item.nature === 'RECEIVABLE';
+                    const Icone = receita ? icons.receita : icons.despesa;
+                    return (
+                      <ListRow
+                        key={item.id}
+                        testID={`compromisso-${item.id}`}
+                        title={item.description}
+                        left={
+                          <IconBadge background={receita ? colors.incomeSoft : colors.expenseSoft}>
+                            <Icone
+                              size={iconSize.row}
+                              color={receita ? colors.income : colors.expense}
+                            />
+                          </IconBadge>
+                        }
+                        meta={[
+                          item.overdue ? 'vencida' : `vence ${dueLabel(item.dueDate)}`,
+                          item.meta,
+                        ]
+                          .filter((part): part is string => Boolean(part))
+                          .join(' · ')}
+                        metaTone={item.overdue ? 'danger' : 'secondary'}
+                        onPress={onOpenPlanning}
+                        right={
+                          <Text variant="moneyRow" tone={receita ? 'income' : 'expense'}>
+                            {formatMoney(minor(item.amountMinor))}
+                          </Text>
+                        }
+                      />
+                    );
+                  })}
                 </Card>
               )}
             </View>
 
             {/* 7. Resumo por membro */}
-            <View style={{ marginTop: spacing.xl }}>
-              <View style={styles.cardHeader}>
-                <SectionLabel>RESUMO POR MEMBRO</SectionLabel>
-                <Pressable
-                  testID="abrir-relatorios"
-                  accessibilityRole="button"
-                  accessibilityLabel="Abrir relatórios"
-                  hitSlop={8}
-                  onPress={onOpenReports}
-                >
-                  <Text variant="rowMeta" tone="brand">
-                    Relatório ›
-                  </Text>
-                </Pressable>
-              </View>
-
-              <View style={styles.memberRow}>
-                {data.byMember.map((member) => (
-                  <Card key={member.memberId} style={styles.memberCard}>
-                    <Text variant="rowTitle">{member.memberName}</Text>
-                    <Text variant="moneyRow" tone={member.role === 'CHILD' ? 'pending' : 'expense'}>
-                      {formatMoney(minor(member.expenseMinor))}
+            <View style={{ marginTop: spacing.md }}>
+              <Card testID="card-resumo-membro">
+                <View style={styles.cardHeader}>
+                  <Text variant="rowTitle">Resumo por membro</Text>
+                  <Pressable
+                    testID="abrir-relatorios"
+                    accessibilityRole="button"
+                    accessibilityLabel="Abrir relatórios"
+                    hitSlop={8}
+                    onPress={onOpenReports}
+                  >
+                    <Text variant="rowMeta" tone="brand">
+                      Relatório ›
                     </Text>
-                  </Card>
-                ))}
-              </View>
+                  </Pressable>
+                </View>
+
+                <View style={[styles.memberRow, { marginTop: spacing.md }]}>
+                  {data.byMember.map((member) => (
+                    <View
+                      key={member.memberId}
+                      style={[
+                        styles.memberCard,
+                        { backgroundColor: colors.surface, borderRadius: radius.lg },
+                      ]}
+                    >
+                      <Text variant="rowTitle">
+                        {member.memberName}
+                        {member.role === 'CHILD' ? (
+                          /* O screenshot marca o filho supervisionado ao lado do
+                             nome: "Caio · filho". */
+                          <Text variant="rowMeta" tone="pending">
+                            {'  · filho'}
+                          </Text>
+                        ) : null}
+                      </Text>
+                      <Text variant="moneyRow" tone="expense">
+                        {formatMoney(minor(member.expenseMinor))}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+              </Card>
             </View>
           </>
         )}
@@ -416,6 +455,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
   },
+  innerHeader: { paddingTop: 14 },
   memberRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  memberCard: { flexBasis: '31%', flexGrow: 1, gap: 2 },
+  memberCard: { flexBasis: '30%', flexGrow: 1, gap: 2, padding: 10 },
 });

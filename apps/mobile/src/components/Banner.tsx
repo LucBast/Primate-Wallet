@@ -19,10 +19,22 @@ export type BannerProps = {
   readonly kind: BannerKind;
   readonly message: string;
   readonly onRetry?: (() => void) | undefined;
+  /**
+   * Ação alinhada à direita, na mesma linha da mensagem — o "Resolver ›" do
+   * banner de vencidas em 1b-inicio.png. Diferente de `onRetry`, que é o botão
+   * com borda embaixo do texto.
+   */
+  readonly actionLabel?: string | undefined;
   readonly testID?: string | undefined;
 };
 
-export function Banner({ kind, message, onRetry, testID }: BannerProps): React.JSX.Element {
+export function Banner({
+  kind,
+  message,
+  onRetry,
+  actionLabel,
+  testID,
+}: BannerProps): React.JSX.Element {
   const { colors, radius } = useTheme();
 
   const palette = {
@@ -40,9 +52,16 @@ export function Banner({ kind, message, onRetry, testID }: BannerProps): React.J
       accessibilityRole="alert"
       style={[styles.banner, { backgroundColor: palette.background, borderRadius: radius.md }]}
     >
-      <Text variant="rowMeta" style={[styles.text, { color: palette.foreground }]}>
-        {text}
-      </Text>
+      <View style={styles.line}>
+        <Text variant="rowMeta" style={[styles.text, { color: palette.foreground }]}>
+          {text}
+        </Text>
+        {actionLabel === undefined ? null : (
+          <Text variant="rowMeta" style={[styles.text, { color: palette.foreground }]}>
+            {actionLabel}
+          </Text>
+        )}
+      </View>
 
       {kind === 'error' && onRetry !== undefined ? (
         <Pressable
@@ -65,6 +84,11 @@ const styles = StyleSheet.create({
   banner: {
     paddingHorizontal: 14,
     paddingVertical: 9,
+  },
+  line: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
   },
   text: {
     lineHeight: typeTokens.rowMeta.fontSize * bannerLineHeightRatio,

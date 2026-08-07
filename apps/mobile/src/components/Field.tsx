@@ -11,6 +11,7 @@ import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'rea
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
 import { font, type as typeTokens } from '../design-system/tokens';
+import { fieldValueHeight } from '../design-system/spec-values';
 
 export type FieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
   readonly label: string;
@@ -30,7 +31,7 @@ export function Field({
   testID,
   ...inputProps
 }: FieldProps): React.JSX.Element {
-  const { colors, radius, layout } = useTheme();
+  const { colors, radius } = useTheme();
 
   return (
     <View>
@@ -60,7 +61,7 @@ export function Field({
                 color: colors.textPrimary,
                 fontFamily: font.bold,
                 fontSize: typeTokens.rowTitle.fontSize,
-                minHeight: layout.minTouch - 18,
+                height: fieldValueHeight,
               },
             ]}
           />

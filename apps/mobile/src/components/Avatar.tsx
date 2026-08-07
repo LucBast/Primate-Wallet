@@ -26,6 +26,12 @@ export type AvatarProps = {
   readonly size?: AvatarSize | undefined;
   /** Sobrepõe a cor (usado no avatar "?" de convite pendente). */
   readonly muted?: boolean | undefined;
+  /**
+   * Fixa a cor em brand, ignorando a semente. O avatar de quem está logado
+   * aparece em brand no header do Início (screenshot 1b-inicio.png), enquanto
+   * na lista de membros cada pessoa tem a sua cor.
+   */
+  readonly tone?: 'seed' | 'brand' | undefined;
 };
 
 function initial(name: string): string {
@@ -41,7 +47,13 @@ function hash(value: string): number {
   return total;
 }
 
-export function Avatar({ name, seed, size = 'md', muted = false }: AvatarProps): React.JSX.Element {
+export function Avatar({
+  name,
+  seed,
+  size = 'md',
+  muted = false,
+  tone = 'seed',
+}: AvatarProps): React.JSX.Element {
   const { colors, radius } = useTheme();
   const { box, glyph } = SIZES[size];
 
@@ -49,7 +61,9 @@ export function Avatar({ name, seed, size = 'md', muted = false }: AvatarProps):
   const palette = [colors.brand, colors.cardWine, colors.pending, colors.warning, colors.info];
   const background = muted
     ? colors.chipNeutral
-    : (palette[hash(seed ?? name) % palette.length] ?? colors.brand);
+    : tone === 'brand'
+      ? colors.brand
+      : (palette[hash(seed ?? name) % palette.length] ?? colors.brand);
 
   return (
     <View

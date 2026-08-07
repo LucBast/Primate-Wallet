@@ -136,7 +136,8 @@ export function LoginScreen({ onCreateAccount }: LoginScreenProps): React.JSX.El
         </Text>
 
         {/* 3–4. Campos */}
-        <View style={[styles.fields, { gap: spacing.md, marginTop: spacing.xxl }]}>
+        {/* Gap 16 entre os campos, medido em 6a-login.png (spacing.md daria 12). */}
+        <View style={[styles.fields, { gap: spacing.lg, marginTop: spacing.xxl }]}>
           <Field
             label="E-mail"
             testID="campo-email"

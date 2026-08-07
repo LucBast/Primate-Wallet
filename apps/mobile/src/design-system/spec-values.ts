@@ -44,6 +44,20 @@ export const secondaryBorderWidth = 1.5;
 export const bannerLineHeightRatio = 1.5;
 
 /**
+ * COMPONENT-SPECS §Field: "padding 9×14. Label caps 10; valor Bold 13".
+ *
+ * A altura da linha do valor não está escrita: ela decorre do texto. Medindo
+ * design/screenshots/6a-login.png (1px = 1dp, confirmado pelo botão central de
+ * 54 da BottomNav em 1b-inicio.png), o card fecha em 53dp: 2 bordas de 1 mais
+ * um interior de 51 = 9 + 15 (a label renderizada) + 18 (o valor) + 9.
+ *
+ * Fixar 18 aqui, em vez de deixar o TextInput do Android escolher a própria
+ * altura pelas métricas da fonte, mantém o campo idêntico nas duas plataformas.
+ * Registrado em docs/21-DECISIONS.md D-042.
+ */
+export const fieldValueHeight = 18;
+
+/**
  * SCREEN-SPECS §6a: "Logo (quadrado brand raio 20 com 'F')". O tamanho do
  * quadrado e da letra vem da medição do screenshot 6a-login.png — nenhum token
  * de `type` cobre um glifo de logotipo. Registrado em docs/21-DECISIONS.md.

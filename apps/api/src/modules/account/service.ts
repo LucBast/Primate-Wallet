@@ -801,21 +801,40 @@ export function createAccountService(deps: { readonly db: Database }) {
     ): Promise<Category> {
       return withUserTransaction(db, userId, async (client) => {
         await requireRole(client, householdId, userId, OPERATORS);
-        const result = await client.query<CategoryRow>(
-          `INSERT INTO categories (household_id, parent_id, name, nature, icon, color, sort_order)
+        // A família nasce com categorias padrão, então repetir um nome é erro de
+        // usuário, não falha do servidor: sem este mapeamento a violação de
+        // unicidade sobe como 500 e a tela mostra "tente de novo" para sempre.
+        const result = await client
+          .query<CategoryRow>(
+            `INSERT INTO categories (household_id, parent_id, name, nature, icon, color, sort_order)
            VALUES ($1, $2, $3, $4, $5, $6, $7)
            RETURNING id, household_id, parent_id, name, nature, icon, color, sort_order,
                      is_system, archived_at`,
-          [
-            householdId,
-            input.parentId ?? null,
-            input.name,
-            input.nature,
-            input.icon ?? null,
-            input.color ?? null,
-            input.sortOrder,
-          ],
-        );
+            [
+              householdId,
+              input.parentId ?? null,
+              input.name,
+              input.nature,
+              input.icon ?? null,
+              input.color ?? null,
+              input.sortOrder,
+            ],
+          )
+          .catch((cause: unknown) => {
+            if (
+              cause !== null &&
+              typeof cause === 'object' &&
+              'constraint' in cause &&
+              cause.constraint === 'categories_household_name_unique'
+            ) {
+              throw new DomainError(
+                'VALIDATION_ERROR',
+                { name: input.name },
+                'Já existe uma categoria com esse nome.',
+              );
+            }
+            throw cause;
+          });
         const row = result.rows[0];
         /* c8 ignore next */
         if (!row) throw new DomainError('INTERNAL_ERROR');

@@ -92,7 +92,11 @@ export function BottomNav({ active, onSelect, onAdd }: BottomNavProps): React.JS
     >
       {left.map(renderItem)}
 
-      <View style={styles.centerSlot}>
+      {/* O slot central ocupa exatamente a largura do botão (54). Dividir os
+          cinco espaços por igual deixaria 75dp por item e cortaria
+          "Movimentações" em "Movimentaçõ…"; com 54 no centro sobram 81 para
+          cada rótulo, que é o que o screenshot mostra. */}
+      <View style={[styles.centerSlot, { width: layout.navCenterButton }]}>
         <Pressable
           testID="nav-adicionar"
           accessibilityRole="button"
@@ -143,7 +147,6 @@ const styles = StyleSheet.create({
   },
   centerSlot: {
     alignItems: 'center',
-    flex: 1,
   },
   addButton: {
     alignItems: 'center',

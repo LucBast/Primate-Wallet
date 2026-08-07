@@ -1,6 +1,9 @@
-pluginManagement { includeBuild("../node_modules/@react-native/gradle-plugin") }
+// Monorepo npm workspaces: as dependências são içadas para a raiz do repositório,
+// então `node_modules` fica em ../../../node_modules e não em apps/mobile/node_modules
+// (o padrão que o template do React Native assume). Ver docs/21-DECISIONS.md D-040.
+pluginManagement { includeBuild("../../../node_modules/@react-native/gradle-plugin") }
 plugins { id("com.facebook.react.settings") }
 extensions.configure(com.facebook.react.ReactSettingsExtension){ ex -> ex.autolinkLibrariesFromCommand() }
 rootProject.name = 'FamilyFinance'
 include ':app'
-includeBuild('../node_modules/@react-native/gradle-plugin')
+includeBuild('../../../node_modules/@react-native/gradle-plugin')

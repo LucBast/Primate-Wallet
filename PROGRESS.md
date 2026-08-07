@@ -10,27 +10,80 @@
 
 ## Gate de fidelidade visual
 
-**A comparação lado a lado com os screenshots NÃO foi executada em nenhuma tela.**
-Ela exige rodar o app em simulador a 390×844 (UI-FIDELITY-RULES §3), e este ambiente
-não tem Android SDK nem Xcode. As telas foram construídas a partir de SCREEN-SPECS +
-COMPONENT-SPECS, com a copy pt-BR verbatim, e o que dá para verificar por código está
-coberto por teste (`apps/mobile/__tests__/`): tokens byte a byte iguais ao design,
-Manrope no bundle iOS e Android, copy dos blocos, valores exatos da BottomNav.
+**O gate foi executado pela primeira vez em 2026-08-07**, no emulador Android
+(Medium_Phone_API_36.1, forçado a 1170×2532 @ 480dpi = exatamente 390×844 dp, como
+manda UI-FIDELITY-RULES §3). O ambiente tem Android Studio, SDK e emulador; o bloqueio
+anterior não existe mais. Falta o gate no iOS (sem macOS aqui) e no tema escuro.
 
-**Nenhuma tela pode ser marcada como concluída antes desse gate.** Telas implementadas
-e aguardando o gate: 1b, 1d, 1e, 1f, 1g, 2a, 2b, 2c, 2d, 2e, 3a, 3b, 3d, 4a–4d, 6a, 6b,
-além das telas sem screenshot (criação de família, convite de membro, sessões,
-categorias, transferência, detalhe de movimentação e de conta prevista).
+Método: em vez de comparar a olho, os PNGs são medidos em pixel
+(`ffmpeg` → rgb24 → varredura de transições de cor). Os screenshots do design têm
+moldura de 1px e 1px = 1dp — confirmado medindo o botão central da BottomNav em
+`1b-inicio.png`, que dá exatamente os 54 do token `layout.navCenterButton`. Isso torna
+as medidas do design e do app diretamente comparáveis.
 
-Divergências já identificadas na leitura dos screenshots, a resolver no gate:
+Para ter o que comparar, `npm run seed:demo --workspace @ff/api` cria a Família Souza
+(Ana, Bruno, Caio) com as contas, o cartão e os lançamentos de agosto de 2026 dos
+screenshots.
 
-1. 6a — o toggle de biometria aparece ligado no design; está desligado por padrão
-   (a biometria entra na fase de segurança).
-2. 6a — o ícone do card de biometria é placeholder no design; hoje é um ponto brand
-   em container `brandSoft`.
-3. 6a — o título "Family Finance" parece maior no screenshot que `type.pageTitle` (22).
-4. 3a — o screenshot mostra "Administradora"; o app usa "Administrador", o rótulo do
-   PRD, porque o modelo não guarda gênero.
+### Telas aprovadas no gate
+
+- **6a · Login** — bate com o screenshot depois das correções abaixo.
+- **1b · Início** — bate com o screenshot depois das correções abaixo, com três
+  ressalvas registradas adiante.
+
+### Divergências encontradas e corrigidas
+
+1. **Field 8dp mais alto que o design** (todos os formulários). O campo forçava
+   `minHeight: minTouch − 18`, um valor sem respaldo em spec algum, fechando em 61dp
+   contra os 53 do design. Agora usa `fieldValueHeight` (spec-values) e mede 53
+   exatos, com interior de 51 — idêntico ao design.
+2. **Gap entre campos 12dp** onde o design mede 16 (6a).
+3. **Avatar do header em azul** (cor sorteada pelo id) onde o design mostra brand.
+   `Avatar` ganhou `tone="brand"`; a paleta por semente continua na lista de membros.
+4. **Seletor de família sem o ▾** e visível só com mais de uma família. O screenshot
+   mostra "Família Souza ▾" sempre.
+5. **Seletor de mês "ago de 2026"** onde o spec e o screenshot pedem "Ago 2026".
+6. **"Previsto × realizado" com "ago de 2026"** onde o screenshot mostra "agosto".
+7. **Banner de vencidas com em dash inline** ("… R$ 640,00 — Resolver ›"); o
+   screenshot separa e alinha "Resolver ›" à direita.
+8. **"PRÓXIMOS COMPROMISSOS" em caixa alta acima do card**; o screenshot põe
+   "Próximos compromissos" DENTRO do card, em caixa normal, com "Ver todos ›" na
+   mesma linha. Mesma correção em "Resumo por membro".
+9. **Linhas de compromisso sem o container de ícone** exigido por COMPONENT-SPECS
+   §ListRow ("container 30–36 raio 10–12 com fundo *Soft").
+10. **Meta "vence 08/08/2026"** onde o screenshot mostra "vence sáb, 08/08".
+11. **"Caio" sem a marca de filho supervisionado**; o screenshot mostra "Caio · filho".
+12. **"Movimentações" truncado para "Movimentaçõ…"** na BottomNav. Os cinco espaços
+    eram divididos por igual (75dp); o slot central agora ocupa os 54 do botão e
+    sobram 81 por rótulo.
+
+### Divergências abertas na 1b
+
+1. **Saldo consolidado**: o app calcula disponível − dívida de cartão
+   (R$ 9.230,55 − R$ 3.250,00 = R$ 5.980,55); o screenshot mostra R$ 12.480,55, que é
+   a SOMA dos dois. Não mexi: trocar o sinal muda semântica financeira, não pixel, e
+   a subtração é a leitura correta de "consolidado". **Precisa de decisão do produto.**
+2. **Ícone das linhas por natureza (↓/↑)**, enquanto o design usa ícone por categoria
+   (⚡ para energia) e o ícone do cartão na fatura. O contrato do dashboard não carrega
+   ícone de categoria; incluir isso é mudança de contrato.
+3. **Fatura do cartão não aparece em "Próximos compromissos"**; o design lista
+   "Fatura · Cartão Azul •••• 4412 · fecha 10/08 · vence 15/08" entre os compromissos.
+
+### Divergências anteriores, reavaliadas
+
+- 6a, toggle de biometria ligado no design e desligado no app: mantido desligado — o
+  próprio texto do card diz "ativado em Segurança após o login".
+- 6a, altura do botão primário: o screenshot mede ~50dp, mas `design-tokens.ts`
+  (`buttonHeight: 54`) e COMPONENT-SPECS dizem 54. Dois contra um, e o token é cópia
+  verbatim e inegociável (CLAUDE.md item 1) — fica 54.
+- 3a, "Administradora" no screenshot: segue "Administrador"; o modelo não guarda gênero.
+
+### Telas ainda sem gate
+
+1d, 1e, 1f, 1g, 2a, 2b, 2c, 2d, 2e, 3a, 3b, 3d, 4a–4d, 6b, mais as telas sem
+screenshot. Nenhuma delas pode ser marcada como concluída. As correções 1, 3, 8, 9 e 12
+são em componentes compartilhados, então provavelmente melhoraram várias dessas telas —
+mas isso é hipótese até medir.
 
 ## Concluído
 
@@ -129,10 +182,9 @@ anterior até o fechamento, inclusive.
 
 ## Bloqueios
 
-1. **Gate visual não executado** — sem Android SDK, emulador ou Xcode neste ambiente.
-   Para destravar: `npm run db:up && npm run db:migrate`,
-   `npm run --workspace @ff/api dev`, `npm run --workspace @ff/mobile start` e
-   `npm run --workspace @ff/mobile android` (ou `ios`).
+1. **Gate visual do iOS e do tema escuro** — o Android está destravado e rodando; iOS
+   exige macOS/Xcode, que não existe aqui. O tema escuro (5b) dá para medir no próprio
+   emulador e ainda não foi feito.
 2. **Provedor de e-mail transacional** — segredo externo. A porta `Mailer` está pronta;
    em desenvolvimento o link vai para o log.
 3. **Bucket S3-compatível para anexos** — registro e caminho escopado prontos; falta o
@@ -141,7 +193,19 @@ anterior até o fechamento, inclusive.
 
 ## Próxima ação exata
 
-Iniciar a **Fase 8 — Experiência rápida**:
+**Terminar o gate visual antes de abrir a Fase 8.** O ferramental já existe e o custo
+por tela agora é baixo:
+
+1. `npm run db:up && npm run db:migrate`, `npm run dev --workspace @ff/api`,
+   `npm run seed:demo --workspace @ff/api`, `npm start --workspace @ff/mobile` e
+   `npm run android --workspace @ff/mobile`.
+2. Emulador em 390×844 dp: `adb shell wm size 1170x2532 && adb shell wm density 480`.
+3. Para cada tela: `adb exec-out screencap -p > tela.png`, medir com a varredura de
+   pixel descrita acima e comparar com `design/screenshots/`.
+4. Repetir tudo no tema escuro (5b).
+5. Decidir a fórmula do saldo consolidado (divergência aberta nº 1).
+
+Só então a **Fase 8 — Experiência rápida**:
 
 1. Tela 1c (`design/screenshots/1c-lancamento-rapido.png`): BottomSheet com segmented
    ↓ Despesa | ↑ Receita | Mais ▾, MoneyInput 44 com teclado numérico interno,
