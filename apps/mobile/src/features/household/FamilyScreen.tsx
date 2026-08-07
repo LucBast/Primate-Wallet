@@ -14,7 +14,7 @@
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
-import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Invitation, Member } from '@ff/api-contracts';
 import { Avatar } from '../../components/Avatar';
@@ -22,7 +22,7 @@ import { Button } from '../../components/Button';
 import { Card, ListRow, SectionLabel } from '../../components/Card';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { EmptyState, RecoverableError, SkeletonList } from '../../components/states';
-
+import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { icons, iconSize } from '../../design-system/icons';
 import { formatMoney, minor } from '@ff/domain';
@@ -97,6 +97,7 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
   }, [load]);
 
   const People = icons.inicio;
+  const Editar = icons.editar;
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
@@ -108,16 +109,18 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
             : undefined
         }
         {...(props.onBack === undefined ? {} : { onBack: props.onBack })}
+        // No screenshot a ação de editar é um lápis, não um botão com rótulo.
         right={
           canManage ? (
-            <Button
+            <Pressable
               testID="editar-familia"
-              label="Editar"
-              variant="secondary"
-              size="sm"
+              accessibilityRole="button"
+              accessibilityLabel="Editar família"
+              hitSlop={10}
               onPress={props.onEditHousehold}
-              style={styles.headerAction}
-            />
+            >
+              <Editar size={iconSize.action} color={colors.textPrimary} />
+            </Pressable>
           ) : undefined
         }
       />
@@ -156,10 +159,14 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
                   key={member.id}
                   first={index === 0}
                   testID={`membro-${member.id}`}
-                  title={
-                    member.userId !== null && member.userId === profileId
-                      ? `${member.displayName} · você`
-                      : member.displayName
+                  title={member.displayName}
+                  // "Bruno Souza · você": o "· você" é discreto, em rowMeta.
+                  badge={
+                    member.userId !== null && member.userId === profileId ? (
+                      <Text variant="rowMeta" tone="secondary">
+                        · você
+                      </Text>
+                    ) : undefined
                   }
                   meta={roleLine(member)}
                   metaTone={ROLE_TONE[member.role]}
@@ -185,18 +192,21 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
                   metaTone="warning"
                   left={<Avatar name={invitation.email} muted />}
                   right={
-                    <Button
+                    <Pressable
                       testID={`revogar-${invitation.id}`}
-                      label="Revogar"
-                      variant="destructive"
-                      size="sm"
-                      style={styles.revoke}
+                      accessibilityRole="button"
+                      accessibilityLabel="Revogar convite"
+                      hitSlop={8}
                       onPress={async () => {
                         if (!accessToken || !household) return;
                         await api.revokeInvitation(accessToken, household.id, invitation.id);
                         await load();
                       }}
-                    />
+                    >
+                      <Text variant="rowMeta" tone="danger">
+                        Revogar
+                      </Text>
+                    </Pressable>
                   }
                 />
               ))}
@@ -235,7 +245,6 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
             styles.footer,
             {
               backgroundColor: colors.surface,
-              borderTopColor: colors.border,
               paddingBottom: Math.max(spacing.lg, insets.bottom),
               paddingHorizontal: layout.screenPaddingH,
             },
@@ -251,10 +260,5 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingTop: 4 },
-  headerAction: { width: 84 },
-  revoke: { width: 88 },
-  footer: {
-    borderTopWidth: 1,
-    paddingTop: 12,
-  },
+  footer: { paddingTop: 12 },
 });

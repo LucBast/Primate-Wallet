@@ -58,6 +58,12 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **3a · Membros (claro)** — bate com o screenshot depois de quatro correções:
+  lápis no lugar do botão "Editar", "· você" discreto ao lado do nome,
+  "Revogar" como texto danger e rodapé sem divisória. **Falta o chip
+  "● 1 aguardando"** em "Aprovações pendentes": aprovação de lançamento ainda
+  não existe no servidor — é a Fase 9, e inventar o número seria mentir na
+  tela.
 - **2e · Compra parcelada (claro)** — bate com o screenshot depois de sete
   correções: Cartão e Data como selects lado a lado (a data era um campo de
   texto ISO), Descrição ao lado de "Categoria · Membro" num select só, chip
