@@ -93,12 +93,74 @@ function normalize(name: string): string {
     .replace(/\p{Diacritic}/gu, '');
 }
 
-/** Ícone e cores da categoria; "Outros" quando não houver correspondência. */
+/**
+ * Conjunto curado que a família pode escolher na 8d.
+ *
+ * Guardamos o NOME do ícone e o NOME do token de cor, nunca o hex — é o que
+ * faz o tema escuro continuar funcionando sozinho (CLARIFICATIONS-02 item 3).
+ */
+export const CURATED_ICONS = {
+  house: House,
+  zap: Zap,
+  wifi: Wifi,
+  droplets: Droplets,
+  'shopping-basket': ShoppingBasket,
+  car: Car,
+  'heart-pulse': HeartPulse,
+  'graduation-cap': GraduationCap,
+  'gamepad-2': Gamepad2,
+  shirt: Shirt,
+  briefcase: Briefcase,
+  'hand-coins': HandCoins,
+  'plus-circle': PlusCircle,
+  tag: Tag,
+} as const satisfies Record<string, LucideIcon>;
+
+export type CuratedIconKey = keyof typeof CURATED_ICONS;
+
+/** Swatches da 8d: nomes de token, resolvidos no tema ativo. */
+export const CURATED_COLORS = [
+  'pending',
+  'brand',
+  'expense',
+  'warning',
+  'info',
+  'cardWine',
+] as const;
+
+export type CuratedColorKey = (typeof CURATED_COLORS)[number];
+
+/**
+ * Ícone e cores da categoria.
+ *
+ * Ordem de resolução (CLARIFICATIONS-02 item 3): escolha da família primeiro,
+ * depois o mapa por nome, depois "Outros" — nunca fica sem ícone.
+ */
 export function categoryVisual(
   categoryName: string | null | undefined,
   colors: Palette,
+  choice?: { readonly icon?: string | null; readonly color?: string | null } | undefined,
 ): CategoryVisual {
+  const chosenIcon =
+    choice?.icon != null && choice.icon in CURATED_ICONS
+      ? CURATED_ICONS[choice.icon as CuratedIconKey]
+      : null;
+  const chosenColor =
+    choice?.color != null && (CURATED_COLORS as readonly string[]).includes(choice.color)
+      ? colors[choice.color as CuratedColorKey]
+      : null;
+
   const entry = (categoryName ? MAP[normalize(categoryName)] : undefined) ?? outros;
   const [color, background] = entry.resolve(colors);
-  return { Icon: entry.Icon, color, background };
+
+  if (chosenIcon === null && chosenColor === null) {
+    return { Icon: entry.Icon, color, background };
+  }
+  const finalColor = chosenColor ?? color;
+  return {
+    Icon: chosenIcon ?? entry.Icon,
+    color: finalColor,
+    // Fundo derivado da própria cor a 12%, como o Lazer do COMPONENT-SPECS.
+    background: chosenColor === null ? background : withAlpha(finalColor, 0.12),
+  };
 }

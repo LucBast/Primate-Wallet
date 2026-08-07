@@ -58,6 +58,17 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **8d · Gestão de categorias (claro)** — bate com o screenshot depois de seis
+  correções: "+ Nova" como botão primário no cabeçalho (era um formulário solto
+  no fim da tela), segmented no singular, linhas com o ícone da categoria e a
+  meta "do sistema · N subcategorias" / "criada pela família · N", subcategorias
+  numa linha só, arquivada com line-through e "Reativar", e o card
+  **"Editar «nome»"** com a grade de ícones e os swatches de cor — que não
+  existia. A escolha grava o NOME do ícone e o NOME do token de cor nas colunas
+  `icon`/`color` que já existiam; `categoryVisual` resolve nessa ordem: escolha
+  da família → mapa por nome → "Outros". Categoria do sistema não tem "Editar".
+  O conjunto curado tem 14 ícones (o screenshot mostra "+24" de um conjunto de
+  30), então o botão diz "+8" — o número real do que está implementado.
 - **8c · Dispositivos e sessões (claro)** — bate com o screenshot depois de
   cinco correções: subtítulo explicando o que revogar faz, a **sessão atual
   separada** em "ESTE APARELHO", num card de borda brand com o chip "● Atual"
