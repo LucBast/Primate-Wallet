@@ -58,6 +58,14 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **8c · Dispositivos e sessões (claro)** — bate com o screenshot depois de
+  cinco correções: subtítulo explicando o que revogar faz, a **sessão atual
+  separada** em "ESTE APARELHO", num card de borda brand com o chip "● Atual"
+  (antes era mais uma linha da lista, marcada só por "· este aparelho"),
+  "OUTRAS SESSÕES · N" com ícone de aparelho e a meta em tempo relativo
+  ("há 2 horas", "ontem", "há 38 dias") no lugar da data de criação, a linha
+  "◌ Inativa há mais de 30 dias" derivada de `lastSeenAt`, e o CTA "Revogar
+  todas as outras sessões" com a microcopy — que não existiam.
 - **8b · Convite de membro (claro)** — também era "sem screenshot dedicado" e
   foi refeita: e-mail antes do nome (é ele que identifica o convite), rótulo
   "Nome de exibição", e a correção que o `CLARIFICATIONS-02` pediu — o chip é

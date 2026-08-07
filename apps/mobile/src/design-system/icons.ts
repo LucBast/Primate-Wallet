@@ -21,6 +21,7 @@ import {
   Ellipsis,
   Eye,
   Pencil,
+  Smartphone,
   EyeOff,
   House,
   Diff,
@@ -55,6 +56,8 @@ export const icons = {
   confirmado: Check,
   // Lápis de "editar" no cabeçalho da 2c e da 3b.
   editar: Pencil,
+  // Aparelho com sessão ativa (8c).
+  aparelho: Smartphone,
   apagar: Delete,
   energia: Zap,
   notificacao: Bell,
