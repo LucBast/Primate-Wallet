@@ -12,7 +12,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { Account } from '@ff/api-contracts';
 import { formatMoney, minor, subtract } from '@ff/domain';
 import { Banner } from '../../components/Banner';
@@ -102,6 +102,9 @@ export function AdjustBalanceSheet({
       visible={visible}
       onClose={onClose}
       title="Ajustar saldo"
+      subtitle={[account.name, account.institutionName]
+        .filter((part): part is string => Boolean(part))
+        .join(' · ')}
       testID="sheet-ajuste"
       footer={
         <View style={{ gap: spacing.sm }}>
@@ -112,7 +115,19 @@ export function AdjustBalanceSheet({
             disabled={!canConfirm}
             onPress={handleConfirm}
           />
-          <Button testID="cancelar-ajuste" label="Cancelar" variant="secondary" onPress={onClose} />
+          {/* No screenshot "Cancelar" é um link centralizado, não um botão. */}
+          <Pressable
+            testID="cancelar-ajuste"
+            accessibilityRole="button"
+            accessibilityLabel="Cancelar"
+            hitSlop={10}
+            onPress={onClose}
+            style={{ paddingVertical: spacing.sm }}
+          >
+            <Text variant="rowTitle" tone="secondary" style={styles.centered}>
+              Cancelar
+            </Text>
+          </Pressable>
         </View>
       }
     >
@@ -177,6 +192,7 @@ export function AdjustBalanceSheet({
 }
 
 const styles = StyleSheet.create({
+  centered: { textAlign: 'center' },
   row: {
     alignItems: 'center',
     flexDirection: 'row',

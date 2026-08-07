@@ -58,6 +58,10 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **2d · Ajuste de saldo (claro)** — já estava fiel; faltavam o subtítulo com a
+  conta ("Conta Corrente · Banco Andar") e o "Cancelar" como link centralizado,
+  não como botão secundário. O banner informativo fica abaixo da dobra da folha
+  no viewport do Android, que tem a barra de status mais alta que a do design.
 - **2c · Detalhe da conta (claro)** — bate com o screenshot depois de seis
   correções: subtítulo com titular e selo de visibilidade colorido, lápis de
   editar no cabeçalho, ícones nos três botões de ação, "Extrato" à esquerda com

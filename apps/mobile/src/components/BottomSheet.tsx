@@ -24,6 +24,8 @@ export type BottomSheetProps = {
   readonly visible: boolean;
   readonly onClose: () => void;
   readonly title?: string | undefined;
+  /** Linha de contexto abaixo do título — "Conta Corrente · Banco Andar" (2d). */
+  readonly subtitle?: string | undefined;
   readonly children: React.ReactNode;
   /** Rodapé fixo, fora da rolagem (CTAs). */
   readonly footer?: React.ReactNode | undefined;
@@ -40,6 +42,7 @@ export function BottomSheet({
   visible,
   onClose,
   title,
+  subtitle,
   children,
   footer,
   embedded = false,
@@ -73,12 +76,16 @@ export function BottomSheet({
           <View style={[styles.handle, { backgroundColor: colors.border }]} />
 
           {title === undefined ? null : (
-            <Text
-              variant="screenTitle"
-              style={{ marginBottom: spacing.md, paddingHorizontal: layout.screenPaddingH }}
+            <View
+              style={{ marginBottom: spacing.md, paddingHorizontal: layout.screenPaddingH, gap: 2 }}
             >
-              {title}
-            </Text>
+              <Text variant="screenTitle">{title}</Text>
+              {subtitle === undefined ? null : (
+                <Text variant="rowMeta" tone="secondary">
+                  {subtitle}
+                </Text>
+              )}
+            </View>
           )}
 
           <ScrollView
