@@ -32,6 +32,7 @@ import { Banner } from '../../components/Banner';
 import { Button } from '../../components/Button';
 import { Field } from '../../components/Field';
 import { Toggle } from '../../components/Toggle';
+import { Fingerprint } from 'lucide-react-native';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { loginLogo } from '../../design-system/spec-values';
@@ -253,13 +254,15 @@ export function LoginScreen({ onCreateAccount }: LoginScreenProps): React.JSX.El
             },
           ]}
         >
+          {/* CLARIFICATIONS-02 item 2a: fingerprint, brand sobre brandSoft,
+              quadrado 34 raio 12 com ícone 18. */}
           <View
             style={[
               styles.biometricIcon,
               { backgroundColor: colors.brandSoft, borderRadius: radius.md },
             ]}
           >
-            <View style={[styles.biometricDot, { backgroundColor: colors.brand }]} />
+            <Fingerprint size={18} color={colors.brand} />
           </View>
 
           <View style={styles.biometricTexts}>
@@ -320,10 +323,9 @@ const styles = StyleSheet.create({
   },
   biometricIcon: {
     alignItems: 'center',
-    height: 32,
+    height: 34,
     justifyContent: 'center',
-    width: 32,
+    width: 34,
   },
-  biometricDot: { borderRadius: 5, height: 10, width: 10 },
   biometricTexts: { flex: 1, gap: 2 },
 });

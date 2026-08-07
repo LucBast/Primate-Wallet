@@ -12,6 +12,7 @@ import {
   ArrowUp,
   Bell,
   Calendar,
+  Fingerprint,
   ChevronLeft,
   ChevronRight,
   CreditCard,
@@ -49,6 +50,9 @@ export const icons = {
   proximo: ChevronRight,
   mostrar: Eye,
   ocultar: EyeOff,
+  // CLARIFICATIONS-02 item 2a: `fingerprint` cobre Face ID e digital — o card
+  // da 6a é sobre o recurso, não sobre o sensor, então não trocar por scan-face.
+  biometria: Fingerprint,
 } as const satisfies Record<string, LucideIcon>;
 
 export type IconName = keyof typeof icons;
