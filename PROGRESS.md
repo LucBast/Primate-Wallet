@@ -28,8 +28,19 @@ screenshots.
 ### Telas aprovadas no gate
 
 - **6a · Login** — bate com o screenshot depois das correções abaixo.
-- **1b · Início** — bate com o screenshot depois das correções abaixo, com três
-  ressalvas registradas adiante.
+- **1b · Início (claro)** — bate com o screenshot. Todos os itens do
+  CLARIFICATIONS-01 aplicados, incluindo ícone por categoria e linha de fatura.
+- **1b · Início (escuro)** — bate com `5b-tema-escuro.png`. Mesmo layout, mesma
+  copy, tokens trocados 1:1. Verificado por pixel: `surface` #161514, `brand`
+  #1E8A7D e a nav em `surfaceElevated` #201F1D, todos exatamente os valores do
+  `dark`. Varredura de 5 colunas não encontrou nenhum hex do `light` — o único
+  #FFFFFF está em y=6–8dp, que é o relógio do Android, fora do app.
+
+### Telas com gate iniciado
+
+Nenhuma. Restam 1d, 1e, 1f, 1g, 2a–2e, 3a, 3b, 3d e 4a–4d, mais o tema escuro
+delas. O ferramental está pronto e o custo por tela é baixo; foi só falta de
+tempo de sessão.
 
 ### Divergências encontradas e corrigidas
 
