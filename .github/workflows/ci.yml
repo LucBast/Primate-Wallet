@@ -66,6 +66,11 @@ jobs:
       LOG_LEVEL: silent
       DATABASE_MIGRATION_URL: postgres://ff_migrator:ff_dev_password@localhost:5432/family_finance
       DATABASE_URL: postgres://ff_app:ff_dev_password@localhost:5432/family_finance
+      # Obrigatória aqui. Sem ela, config/env.ts cai no fallback para DATABASE_URL
+      # e a autenticação passa a conectar como ff_app — que é proibido de tocar em
+      # password_hash de propósito. O resultado é 500 em /auth/register e a queda de
+      # todo teste que cadastra usuário, que foi o que manteve esta job vermelha.
+      DATABASE_AUTH_URL: postgres://ff_auth:ff_dev_password@localhost:5432/family_finance
       JWT_ACCESS_SECRET: ci-access-secret-ci-access-secret-ci-access
       JWT_REFRESH_SECRET: ci-refresh-secret-ci-refresh-secret-ci-refre
     steps:
