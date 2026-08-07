@@ -58,6 +58,14 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **8g · Detalhe de conta prevista (claro)** — bate com o screenshot depois de
+  cinco correções, incluindo **os dois blocos que o `CLARIFICATIONS-02` pediu**:
+  **Histórico de baixas** (mesma linha da 1e; baixa estornada aparece riscada
+  com "● Estornada" e o motivo, e não conta no "Já pago") e **Anexos** (chip por
+  arquivo com o badge do formato e a área tracejada "+ Foto"). Além deles: o
+  subtítulo do cabeçalho saiu, o status virou texto inline em vez de chip, os
+  campos viraram rótulo/valor com "agosto 2026 · vence 05/08", e o CTA "Dar
+  baixa" subiu para logo depois dos campos.
 - **8f · Detalhe de movimentação (claro)** — bate com o screenshot depois de
   quatro correções: título fixo "Movimentação" (era a descrição do lançamento),
   card de cabeçalho com ícone da categoria, "TIPO · ESTADO" em caixa alta,
