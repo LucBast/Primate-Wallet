@@ -57,17 +57,29 @@ screenshots.
     eram divididos por igual (75dp); o slot central agora ocupa os 54 do botão e
     sobram 81 por rótulo.
 
+### Segunda rodada, com as respostas de design/CLARIFICATIONS-01.md
+
+13. **Nenhum token de tipografia tinha `lineHeight`** — cada texto crescia pela métrica
+    natural da Manrope e o erro acumulava (o card de biometria da 6a fechava em 81dp
+    contra 66 do design). `CLARIFICATIONS-01` publicou o `lineHeight` de todos os
+    estilos e criou `type.banner`. `design-tokens.ts` foi recopiado verbatim.
+14. **`Field` com altura fixa**: o design determinou não fixar. Com os `lineHeight`
+    dos tokens o card fecha sozinho em 52–54dp contra os 53 do design. Os dois
+    `spec-values` que existiam para tapar essas lacunas (`fieldValueHeight` e
+    `bannerLineHeightRatio`) foram removidos — viraram token.
+15. **Saldo consolidado com os rótulos trocados.** O design é consistente na 1b:
+    Consolidado = Σ contas (não desconta cartão), Disponível = consolidado − cartões.
+    O app fazia o inverso. Corrigido no serviço, com teste.
+
 ### Divergências abertas na 1b
 
-1. **Saldo consolidado**: o app calcula disponível − dívida de cartão
-   (R$ 9.230,55 − R$ 3.250,00 = R$ 5.980,55); o screenshot mostra R$ 12.480,55, que é
-   a SOMA dos dois. Não mexi: trocar o sinal muda semântica financeira, não pixel, e
-   a subtração é a leitura correta de "consolidado". **Precisa de decisão do produto.**
-2. **Ícone das linhas por natureza (↓/↑)**, enquanto o design usa ícone por categoria
-   (⚡ para energia) e o ícone do cartão na fatura. O contrato do dashboard não carrega
-   ícone de categoria; incluir isso é mudança de contrato.
-3. **Fatura do cartão não aparece em "Próximos compromissos"**; o design lista
-   "Fatura · Cartão Azul •••• 4412 · fecha 10/08 · vence 15/08" entre os compromissos.
+1. **Ícone das linhas por natureza (↓/↑)**, enquanto o design usa ícone por categoria.
+   `CLARIFICATIONS-01` item 3 já entregou o mapa (categoria → ícone lucide → cor →
+   fundo *Soft*), mas o contrato do dashboard não carrega a categoria da linha —
+   implementar exige mudar o contrato. É a próxima tarefa da 1b.
+2. **Fatura do cartão não aparece em "Próximos compromissos"**. O formato exato veio
+   em `CLARIFICATIONS-01` item 4; falta o serviço incluir a fatura entre os
+   compromissos.
 
 ### Divergências anteriores, reavaliadas
 
@@ -185,7 +197,15 @@ anterior até o fechamento, inclusive.
 1. **Gate visual do iOS e do tema escuro** — o Android está destravado e rodando; iOS
    exige macOS/Xcode, que não existe aqui. O tema escuro (5b) dá para medir no próprio
    emulador e ainda não foi feito.
-2. **Provedor de e-mail transacional** — segredo externo. A porta `Mailer` está pronta;
+2. **Os testes da API truncam o banco de DESENVOLVIMENTO.** `tests/helpers.ts` roda
+   `TRUNCATE … CASCADE` usando o mesmo `DATABASE_*` do `.env`, então `npm run verify`
+   apaga o seed de demonstração no meio de uma sessão de gate visual. Contorno atual:
+   rodar `npm run seed:demo --workspace @ff/api` de novo. Correção de verdade: um banco
+   `family_finance_test` separado, com `.env.test` próprio.
+3. **Referências visuais pendentes com o design** — as 7 telas sem screenshot e as 3
+   perguntas pontuais da 6a/3a foram truncadas no envio e precisam ser reenviadas
+   (ver `design/CLARIFICATIONS-01.md`, itens 5 e 6).
+4. **Provedor de e-mail transacional** — segredo externo. A porta `Mailer` está pronta;
    em desenvolvimento o link vai para o log.
 3. **Bucket S3-compatível para anexos** — registro e caminho escopado prontos; falta o
    provedor e a URL assinada.

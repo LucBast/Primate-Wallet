@@ -40,21 +40,23 @@ export const font = {
 };
 
 // Estilos de texto. Valores monetários SEMPRE com fontVariant: ['tabular-nums'].
+// lineHeight é OBRIGATÓRIO em todo Text — nunca deixar a métrica natural da Manrope decidir.
 export const type = {
-  moneyLg:   { fontFamily: font.extrabold, fontSize: 32, letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
-  moneyMd:   { fontFamily: font.extrabold, fontSize: 20, fontVariant: ['tabular-nums'] },
-  moneyRow:  { fontFamily: font.extrabold, fontSize: 13, fontVariant: ['tabular-nums'] },
-  pageTitle: { fontFamily: font.extrabold, fontSize: 22 },
-  screenTitle:{ fontFamily: font.extrabold, fontSize: 17 },
-  section:   { fontFamily: font.extrabold, fontSize: 13 },
-  sectionCaps:{ fontFamily: font.extrabold, fontSize: 11, letterSpacing: 0.5, textTransform: 'uppercase' },
-  body:      { fontFamily: font.medium, fontSize: 14 },
-  rowTitle:  { fontFamily: font.bold, fontSize: 13 },
-  rowMeta:   { fontFamily: font.semibold, fontSize: 10.5 },
-  label:     { fontFamily: font.bold, fontSize: 10, letterSpacing: 0.4, textTransform: 'uppercase' },
-  chip:      { fontFamily: font.bold, fontSize: 11.5 },
-  button:    { fontFamily: font.extrabold, fontSize: 15 },
-  caption:   { fontFamily: font.semibold, fontSize: 12 },
+  moneyLg:    { fontFamily: font.extrabold, fontSize: 32, lineHeight: 40, letterSpacing: -0.5, fontVariant: ['tabular-nums'] },
+  moneyMd:    { fontFamily: font.extrabold, fontSize: 20, lineHeight: 26, fontVariant: ['tabular-nums'] },
+  moneyRow:   { fontFamily: font.extrabold, fontSize: 13, lineHeight: 18, fontVariant: ['tabular-nums'] },
+  pageTitle:  { fontFamily: font.extrabold, fontSize: 22, lineHeight: 28 },
+  screenTitle:{ fontFamily: font.extrabold, fontSize: 17, lineHeight: 22 },
+  section:    { fontFamily: font.extrabold, fontSize: 13, lineHeight: 18 },
+  sectionCaps:{ fontFamily: font.extrabold, fontSize: 11, lineHeight: 15, letterSpacing: 0.5, textTransform: 'uppercase' },
+  body:       { fontFamily: font.medium, fontSize: 14, lineHeight: 21 },
+  rowTitle:   { fontFamily: font.bold, fontSize: 13, lineHeight: 18 },
+  rowMeta:    { fontFamily: font.semibold, fontSize: 10.5, lineHeight: 15 },
+  banner:     { fontFamily: font.bold, fontSize: 10.5, lineHeight: 16 },
+  label:      { fontFamily: font.bold, fontSize: 10, lineHeight: 15, letterSpacing: 0.4, textTransform: 'uppercase' },
+  chip:       { fontFamily: font.bold, fontSize: 11.5, lineHeight: 16 },
+  button:     { fontFamily: font.extrabold, fontSize: 15, lineHeight: 20 },
+  caption:    { fontFamily: font.semibold, fontSize: 12, lineHeight: 17 },
 };
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32 };

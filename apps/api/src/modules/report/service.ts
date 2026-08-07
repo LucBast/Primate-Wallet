@@ -188,20 +188,26 @@ export function createReportService(deps: { readonly db: Database }) {
           const { timezone } = await context(client, householdId, userId);
           const today = familyToday(timezone);
 
+          // Semântica dos três números do card de saldo (design/CLARIFICATIONS-01,
+          // consistente com o screenshot 1b-inicio.png):
+          //   Consolidado       = soma das contas, SEM descontar cartão
+          //   Cartões em aberto = dívida dos cartões
+          //   Disponível        = consolidado − cartões em aberto
+          // Patrimônio líquido seria um quarto número, e não existe hoje.
           const balances = await client.query<{
-            available: string;
+            accounts_total: string;
             card_debt: string;
           }>(
             `SELECT
                COALESCE(sum(CASE WHEN a.account_type <> 'CREDIT_CARD'
-                                 THEN app.account_balance(a.id) END), 0) AS available,
+                                 THEN app.account_balance(a.id) END), 0) AS accounts_total,
                COALESCE(sum(CASE WHEN a.account_type = 'CREDIT_CARD'
                                  THEN app.account_balance(a.id) END), 0) AS card_debt
              FROM accounts a
             WHERE a.household_id = $1 AND a.archived_at IS NULL`,
             [householdId],
           );
-          const available = Number(balances.rows[0]?.available ?? 0);
+          const accountsTotal = Number(balances.rows[0]?.accounts_total ?? 0);
           const cardDebt = Number(balances.rows[0]?.card_debt ?? 0);
 
           const current = await totalsFor(client, householdId, query.mode, query.from, query.to);
@@ -324,8 +330,8 @@ export function createReportService(deps: { readonly db: Database }) {
 
           return {
             mode: query.mode,
-            consolidatedBalanceMinor: available - cardDebt,
-            availableBalanceMinor: available,
+            consolidatedBalanceMinor: accountsTotal,
+            availableBalanceMinor: accountsTotal - cardDebt,
             cardDebtMinor: cardDebt,
             summary: {
               mode: query.mode,

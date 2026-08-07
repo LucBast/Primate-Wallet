@@ -25,3 +25,6 @@ O design aprovado está em \`screenshots/\` (uma imagem por tela, nomeada pelo i
 
 ## Ícones
 O design usa glifos placeholder (⌂ ▦ ⇄ ⋯ ↑ ↓ ↺ ⌫ ⚡). Na implementação, usar um único set de ícones de linha (ex.: Lucide/Phosphor) mapeado 1:1: Início=house, Planejamento=calendar, Movimentações=arrows-left-right, Mais=dots, receita=arrow-up, despesa=arrow-down, transferência=arrows, estorno=rotate-ccw, cartão=credit-card. Tamanho 17–20, cor conforme o screenshot (ativo brand, inativo textSecondary). Containers de ícone: quadrado arredondado (raio 10–12) com fundo *Soft da cor semântica.
+
+## Tema escuro — regra oficial
+Vale para TODAS as telas: layout, hierarquia, espaçamentos e copy idênticos aos do tema claro; muda somente o conjunto de tokens (\`light\` → \`dark\`, mapeamento 1:1 por nome). Exceções fixas: sombras no escuro usam preto (botão central da nav: 0 6 14 rgba(0,0,0,0.5)); cardNavy/cardWine permanecem iguais. Nenhum screenshot escuro adicional será produzido — 5b é a prova do mapeamento, não um layout próprio. Gate escuro = mesma comparação estrutural do claro + verificação de que nenhum hex de \`light\` vazou.

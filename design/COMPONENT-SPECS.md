@@ -27,7 +27,8 @@ Altura mínima 52, padding vertical 9–10, divisor 1 divider entre linhas (dent
 Trilho chipNeutral raio 999 altura 7–8; preenchimento na cor do status (warning para parcial). SEMPRE acompanhado de texto numérico ("44% pago · status: ● Parcial").
 
 ## Field (formulários)
-Card branco raio 14 borda 1 rgba(28,27,26,0.10), padding 9×14. Label caps 10 textSecondary; valor Bold 13; selects com ▾.
+Card branco raio 14 borda 1 rgba(28,27,26,0.10), padding 9×14. Label caps 10 textSecondary (lineHeight 15); valor Bold 13 (lineHeight 18); selects com ▾.
+**Altura fechada: 53** = borda 1×2 + padding 9×2 + label 15 + valor 18. Não fixar height; a altura emerge desses valores.
 
 ## Toggle
 40×24, trilho raio 999 (ligado brand, desligado chipNeutral), bolinha branca 20.
@@ -53,3 +54,28 @@ Blocos chipNeutral raio 6–10 no layout final da tela. Nunca tela branca.
 ## Cards de destaque
 - **Saldo consolidado** (Início): fundo brand, raio 20, padding 14×18, label caps branco 75%, valor moneyLg branco, linha "Disponível / Cartões em aberto" 11.5.
 - **Fatura** (detalhe): fundo cardNavy, mesmo padrão + chip de status translúcido, progress de pagamento (7, preenchimento toastAction) e barra de limite (5, branco).
+
+## Ícones por categoria (mapa oficial)
+Regra: em **Próximos compromissos** (1b) e listas de planejamento, o ícone é o da CATEGORIA da conta prevista; faturas usam credit-card (brandSoft/brand) e receitas previstas arrow-up (incomeSoft/income). Em **Movimentações/extratos** (1g, 2c) o ícone é da NATUREZA: arrow-down expense · arrow-up income · arrows-left-right transferência (chipNeutral/textTertiary) · rotate-ccw estorno · credit-card pagamento de fatura · plus-minus ajuste. Container: 30–36, raio 10–12, fundo *Soft, ícone 16–17 na cor semântica.
+
+| Categoria | lucide | cor | fundo |
+|---|---|---|---|
+| Moradia (aluguel, condomínio, financiamento) | house | brand | brandSoft |
+| Contas da casa · Energia | zap | warning | warningSoft |
+| Contas da casa · Internet/telefone | wifi | warning | warningSoft |
+| Contas da casa · Água/gás | droplets | warning | warningSoft |
+| Mercado | shopping-basket | income | incomeSoft |
+| Transporte | car | warning | warningSoft |
+| Saúde | heart-pulse | info | infoSoft |
+| Educação | graduation-cap | pending | pendingSoft |
+| Lazer | gamepad-2 | cardWine | rgba(122,58,94,0.12) |
+| Vestuário e casa | shirt | textTertiary | chipNeutral |
+| Outros / sem categoria | tag | textSecondary | chipNeutral |
+| Salário (receita) | briefcase | income | incomeSoft |
+| Reembolso (receita) | hand-coins | income | incomeSoft |
+| Outras receitas | plus-circle | income | incomeSoft |
+
+## Linha de fatura (listas de compromissos)
+Título: `Fatura · Cartão Azul •••• 4412` — quatro U+2022 colados ("••••"), UM espaço antes dos 4 dígitos; separador título " · " (espaço + U+00B7 + espaço).
+Meta (UMA linha só, abaixo do título): `fecha 10/08 · vence 15/08` — datas dd/MM, mesmo separador.
+Ícone: credit-card 16 em container 32, raio 10, fundo brandSoft, cor brand. Valor à direita: moneyRow textPrimary (sem sinal — fatura não é despesa).

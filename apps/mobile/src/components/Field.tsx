@@ -11,7 +11,6 @@ import { Pressable, StyleSheet, TextInput, View, type TextInputProps } from 'rea
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
 import { font, type as typeTokens } from '../design-system/tokens';
-import { fieldValueHeight } from '../design-system/spec-values';
 
 export type FieldProps = Omit<TextInputProps, 'style' | 'placeholderTextColor'> & {
   readonly label: string;
@@ -57,11 +56,14 @@ export function Field({
             placeholderTextColor={colors.textSecondary}
             style={[
               styles.input,
+              // Sem altura fixa: com os lineHeight dos tokens o card fecha nos
+              // 53 do design por conta própria (1 + 9 + 15 + 18 + 9 + 1).
+              // COMPONENT-SPECS §Field, CLARIFICATIONS-01 item 2.
               {
                 color: colors.textPrimary,
                 fontFamily: font.bold,
                 fontSize: typeTokens.rowTitle.fontSize,
-                height: fieldValueHeight,
+                lineHeight: typeTokens.rowTitle.lineHeight,
               },
             ]}
           />

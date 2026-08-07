@@ -10,8 +10,6 @@ import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
-import { bannerLineHeightRatio } from '../design-system/spec-values';
-import { type as typeTokens } from '../design-system/tokens';
 
 export type BannerKind = 'info' | 'warning' | 'error' | 'offline';
 
@@ -53,11 +51,11 @@ export function Banner({
       style={[styles.banner, { backgroundColor: palette.background, borderRadius: radius.md }]}
     >
       <View style={styles.line}>
-        <Text variant="rowMeta" style={[styles.text, { color: palette.foreground }]}>
+        <Text variant="banner" style={{ color: palette.foreground }}>
           {text}
         </Text>
         {actionLabel === undefined ? null : (
-          <Text variant="rowMeta" style={[styles.text, { color: palette.foreground }]}>
+          <Text variant="banner" style={{ color: palette.foreground }}>
             {actionLabel}
           </Text>
         )}
@@ -89,9 +87,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flexDirection: 'row',
     justifyContent: 'space-between',
-  },
-  text: {
-    lineHeight: typeTokens.rowMeta.fontSize * bannerLineHeightRatio,
   },
   retry: {
     alignSelf: 'flex-start',

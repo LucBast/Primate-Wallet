@@ -287,7 +287,7 @@ describe('dashboard (tela 1b)', () => {
     expect(body.byMember[0].memberName).toBe('Ana');
   });
 
-  it('desconta a dívida de cartões do saldo consolidado', async () => {
+  it('desconta a dívida de cartões do disponível, não do consolidado', async () => {
     const base = await setup();
     await post(base, `/households/${base.householdId}/card-purchases`, {
       accountId: base.cardId,
@@ -301,7 +301,10 @@ describe('dashboard (tela 1b)', () => {
 
     const body = (await get(base, `/households/${base.householdId}/dashboard?${PERIOD}`)).json();
     expect(body.cardDebtMinor).toBe(50_000);
-    expect(body.consolidatedBalanceMinor).toBe(1_200_000 - 50_000);
+    // CLARIFICATIONS-01: consolidado é a soma das contas; o cartão sai do
+    // disponível. Inverter os dois é o defeito que o gate visual pegou na 1b.
+    expect(body.consolidatedBalanceMinor).toBe(1_200_000);
+    expect(body.availableBalanceMinor).toBe(1_200_000 - 50_000);
   });
 });
 
