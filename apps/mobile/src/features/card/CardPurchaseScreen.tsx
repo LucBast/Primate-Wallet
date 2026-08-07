@@ -22,29 +22,36 @@ import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 're
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   cyclesForInstallments,
-  formatDate,
+  familyToday,
   formatMoney,
   isoDate,
   minor,
   splitInstallments,
 } from '@ff/domain';
+import { Badge } from '../../components/Badge';
 import { Banner } from '../../components/Banner';
 import { Button } from '../../components/Button';
-import { Card, SectionLabel } from '../../components/Card';
+import { Card, ListRow, SectionLabel } from '../../components/Card';
 import { ChoiceChip } from '../../components/Chip';
+import { DateField } from '../../components/DateField';
 import { Field } from '../../components/Field';
 import { MoneyInput } from '../../components/MoneyInput';
+import { OptionSheet } from '../../components/OptionSheet';
 import { ScreenHeader } from '../../components/ScreenHeader';
+import { SelectField } from '../../components/SelectField';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { ApiRequestError } from '../../services/api-client';
+import { dayMonth, longMonthLabel } from '../../services/dates';
 import { newIdempotencyKey } from '../../services/idempotency';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
 import { useReferenceStore } from '../household/reference-store';
 import * as api from './card-api';
 
-const INSTALLMENT_OPTIONS = [1, 2, 3, 6, 10, 12] as const;
+const INSTALLMENT_OPTIONS = [1, 2, 3, 6, 10] as const;
+/** O que abre no "Outro ▾". */
+const OUTRAS_PARCELAS = [4, 5, 8, 12, 15, 18, 24, 36] as const;
 
 export function CardPurchaseScreen({
   onBack,
@@ -71,10 +78,15 @@ export function CardPurchaseScreen({
   const [amountMinor, setAmountMinor] = useState(0);
   const [cardId, setCardId] = useState<string | null>(cards[0]?.id ?? null);
   const [description, setDescription] = useState('');
-  const [purchaseDate, setPurchaseDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const today =
+    household === null
+      ? new Date().toISOString().slice(0, 10)
+      : (familyToday(household.timezone) as string);
+  const [purchaseDate, setPurchaseDate] = useState<string>(today);
   const [categoryId, setCategoryId] = useState<string | null>(null);
   const [memberId, setMemberId] = useState<string | null>(members[0]?.id ?? null);
   const [installments, setInstallments] = useState(1);
+  const [sheet, setSheet] = useState<'cartao' | 'categoria' | 'membro' | 'parcelas' | null>(null);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey] = useState(() => newIdempotencyKey('compra'));
@@ -181,75 +193,62 @@ export function CardPurchaseScreen({
             />
           </View>
         ) : (
-          <View style={{ marginTop: spacing.xl }}>
-            <SectionLabel>CARTÃO</SectionLabel>
-            <View style={styles.chips}>
-              {cards.map((item) => (
-                <ChoiceChip
-                  key={item.id}
-                  testID={`cartao-${item.id}`}
-                  label={
-                    item.cardLastFour === null ? item.name : `${item.name} · ${item.cardLastFour}`
-                  }
-                  selected={cardId === item.id}
-                  onPress={() => setCardId(item.id)}
-                />
-              ))}
+          /* Cartão e data dividem a linha (screenshot 2e). */
+          <View style={[styles.row, { marginTop: spacing.md }]}>
+            <View style={styles.wide}>
+              <SelectField
+                testID="campo-cartao"
+                label="Cartão"
+                value={
+                  card === null
+                    ? 'Escolher'
+                    : card.cardLastFour === null
+                      ? card.name
+                      : `${card.name} • • • • ${card.cardLastFour}`
+                }
+                placeholder={card === null}
+                onPress={() => setSheet('cartao')}
+              />
+            </View>
+            <View style={styles.narrow}>
+              <DateField
+                testID="campo-data"
+                label="Data"
+                value={purchaseDate}
+                onChange={setPurchaseDate}
+                today={today}
+              />
             </View>
           </View>
         )}
 
-        <View style={{ gap: spacing.md, marginTop: spacing.md }}>
-          <Field
-            label="Descrição"
-            testID="campo-descricao"
-            value={description}
-            onChangeText={setDescription}
-            autoCapitalize="sentences"
-            placeholder="Sofá"
-          />
-          <Field
-            label="Data da compra"
-            testID="campo-data"
-            value={purchaseDate}
-            onChangeText={setPurchaseDate}
-            autoCapitalize="none"
-          />
+        {/* Descrição ao lado de "Categoria · Membro", num select só. */}
+        <View style={[styles.row, { marginTop: spacing.md }]}>
+          <View style={styles.wide}>
+            <Field
+              label="Descrição"
+              testID="campo-descricao"
+              value={description}
+              onChangeText={setDescription}
+              autoCapitalize="sentences"
+              placeholder="Sofá"
+            />
+          </View>
+          <View style={styles.wide}>
+            <SelectField
+              testID="campo-categoria-membro"
+              label="Categoria · Membro"
+              value={[
+                expenseCategories.find((item) => item.id === categoryId)?.name,
+                members.find((item) => item.id === memberId)?.displayName,
+              ]
+                .filter((part): part is string => Boolean(part))
+                .join(' · ')}
+              placeholder={categoryId === null && memberId === null}
+              onPress={() => setSheet('categoria')}
+            />
+          </View>
         </View>
-
-        {expenseCategories.length === 0 ? null : (
-          <View style={{ marginTop: spacing.xl }}>
-            <SectionLabel>CATEGORIA</SectionLabel>
-            <View style={styles.chips}>
-              {expenseCategories.map((category) => (
-                <ChoiceChip
-                  key={category.id}
-                  testID={`categoria-${category.id}`}
-                  label={category.name}
-                  selected={categoryId === category.id}
-                  onPress={() => setCategoryId(category.id)}
-                />
-              ))}
-            </View>
-          </View>
-        )}
-
-        {members.length === 0 ? null : (
-          <View style={{ marginTop: spacing.xl }}>
-            <SectionLabel>MEMBRO</SectionLabel>
-            <View style={styles.chips}>
-              {members.map((member) => (
-                <ChoiceChip
-                  key={member.id}
-                  testID={`membro-${member.id}`}
-                  label={member.displayName}
-                  selected={memberId === member.id}
-                  onPress={() => setMemberId(member.id)}
-                />
-              ))}
-            </View>
-          </View>
-        )}
 
         <View style={{ marginTop: spacing.xl }}>
           <SectionLabel>PARCELAS</SectionLabel>
@@ -263,32 +262,53 @@ export function CardPurchaseScreen({
                 onPress={() => setInstallments(count)}
               />
             ))}
+            {/* "Outro ▾" abre o resto das opções, como no screenshot. */}
+            <ChoiceChip
+              testID="parcelas-outro"
+              label={
+                INSTALLMENT_OPTIONS.includes(installments as (typeof INSTALLMENT_OPTIONS)[number])
+                  ? 'Outro ▾'
+                  : `${installments}× ▾`
+              }
+              selected={
+                !INSTALLMENT_OPTIONS.includes(installments as (typeof INSTALLMENT_OPTIONS)[number])
+              }
+              onPress={() => setSheet('parcelas')}
+            />
           </View>
         </View>
 
         {preview.length === 0 ? null : (
           <View style={{ marginTop: spacing.md }}>
-            <Card testID="card-previa">
-              {preview.map((item) => (
-                <View key={item.number} style={styles.previewRow}>
-                  <Text variant="rowMeta" tone="secondary">
-                    {`${String(item.number).padStart(2, '0')}/${String(installments).padStart(2, '0')} · fatura fecha ${formatDate(isoDate(item.closingDate))} · vence ${formatDate(isoDate(item.dueDate))}`}
-                  </Text>
-                  <Text variant="moneyRow">{formatMoney(minor(item.amountMinor))}</Text>
-                </View>
+            <Card padded={false} testID="card-previa">
+              {preview.map((item, index) => (
+                <ListRow
+                  key={item.number}
+                  first={index === 0}
+                  testID={`parcela-${item.number}`}
+                  title={`Parcela ${item.number} de ${installments}`}
+                  // O arredondamento é um selo ao lado do título, não um aviso
+                  // solto no fim do card.
+                  badge={
+                    item.roundingMinor === 0 ? undefined : (
+                      <Badge
+                        tone="income"
+                        label={`+ ${formatMoney(minor(item.roundingMinor))} de arredondamento`}
+                      />
+                    )
+                  }
+                  meta={`fatura de ${longMonthLabel(item.closingDate)} · vence ${dayMonth(item.dueDate)}`}
+                  right={<Text variant="moneyRow">{formatMoney(minor(item.amountMinor))}</Text>}
+                />
               ))}
-              {preview.length > 1 && (preview[preview.length - 1]?.roundingMinor ?? 0) !== 0 ? (
-                <Text variant="rowMeta" tone="warning" style={{ marginTop: 4 }}>
-                  {`+ ${formatMoney(minor(preview[preview.length - 1]?.roundingMinor ?? 0))} de arredondamento na última parcela`}
-                </Text>
-              ) : null}
             </Card>
 
             <View style={{ marginTop: spacing.sm }}>
               <Banner
-                kind="info"
+                kind="brand"
                 testID="banner-soma"
-                message={`Soma das parcelas ${formatMoney(minor(sumMinor))} ✓`}
+                message="Soma das parcelas"
+                actionLabel={`${formatMoney(minor(sumMinor))} ✓`}
               />
             </View>
           </View>
@@ -302,16 +322,16 @@ export function CardPurchaseScreen({
           />
         </View>
 
+        {/* Linha simples, sem card: "Limite após a compra   R$ 3.750,00
+            disponível de R$ 8.000,00". */}
         {limitAfter === null ? null : (
-          <View style={{ marginTop: spacing.md }}>
-            <Card>
-              <View style={styles.previewRow}>
-                <Text variant="rowTitle">Limite após a compra</Text>
-                <Text variant="moneyRow" tone={limitAfter < 0 ? 'danger' : 'primary'}>
-                  {formatMoney(minor(limitAfter))}
-                </Text>
-              </View>
-            </Card>
+          <View style={[styles.previewRow, { marginTop: spacing.md }]}>
+            <Text variant="rowMeta" tone="secondary">
+              Limite após a compra
+            </Text>
+            <Text variant="rowMeta" tone={limitAfter < 0 ? 'danger' : 'secondary'}>
+              {`${formatMoney(minor(limitAfter))} disponível de ${formatMoney(minor(card?.creditLimitMinor ?? 0))}`}
+            </Text>
           </View>
         )}
 
@@ -322,12 +342,51 @@ export function CardPurchaseScreen({
         )}
       </ScrollView>
 
+      <OptionSheet
+        visible={sheet === 'cartao'}
+        title="Cartão"
+        options={cards.map((item) => ({
+          value: item.id,
+          label: item.name,
+          meta: item.cardLastFour === null ? undefined : `• • • • ${item.cardLastFour}`,
+        }))}
+        value={cardId}
+        onSelect={setCardId}
+        onClose={() => setSheet(null)}
+      />
+      <OptionSheet
+        visible={sheet === 'categoria'}
+        title="Categoria"
+        options={expenseCategories.map((item) => ({ value: item.id, label: item.name }))}
+        value={categoryId}
+        onSelect={(value) => {
+          setCategoryId(value);
+          setSheet('membro');
+        }}
+        onClose={() => setSheet(null)}
+      />
+      <OptionSheet
+        visible={sheet === 'membro'}
+        title="Membro"
+        options={members.map((item) => ({ value: item.id, label: item.displayName }))}
+        value={memberId}
+        onSelect={setMemberId}
+        onClose={() => setSheet(null)}
+      />
+      <OptionSheet
+        visible={sheet === 'parcelas'}
+        title="Parcelas"
+        options={OUTRAS_PARCELAS.map((count) => ({ value: String(count), label: `${count}×` }))}
+        value={String(installments)}
+        onSelect={(value) => setInstallments(Number.parseInt(value, 10))}
+        onClose={() => setSheet(null)}
+      />
+
       <View
         style={[
           styles.footer,
           {
             backgroundColor: colors.surface,
-            borderTopColor: colors.border,
             paddingBottom: Math.max(spacing.lg, insets.bottom),
             paddingHorizontal: layout.screenPaddingH,
           },
@@ -349,6 +408,9 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingTop: 4 },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  row: { flexDirection: 'row', gap: 10 },
+  wide: { flex: 1.4 },
+  narrow: { flex: 1 },
   previewRow: {
     alignItems: 'center',
     flexDirection: 'row',
@@ -356,5 +418,5 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 3,
   },
-  footer: { borderTopWidth: 1, paddingTop: 12 },
+  footer: { paddingTop: 12 },
 });

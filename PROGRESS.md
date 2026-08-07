@@ -58,6 +58,13 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **2e · Compra parcelada (claro)** — bate com o screenshot depois de sete
+  correções: Cartão e Data como selects lado a lado (a data era um campo de
+  texto ISO), Descrição ao lado de "Categoria · Membro" num select só, chip
+  "Outro ▾" no lugar do 12× fixo, prévia das parcelas como linhas
+  ("Parcela 1 de 3" / "fatura de agosto · vence 15/08") com o arredondamento
+  virando selo ao lado do título, soma das parcelas em banner brandSoft com o
+  valor à direita, e "Limite após a compra" como linha simples, sem card.
 - **2d · Ajuste de saldo (claro)** — já estava fiel; faltavam o subtítulo com a
   conta ("Conta Corrente · Banco Andar") e o "Cancelar" como link centralizado,
   não como botão secundário. O banner informativo fica abaixo da dobra da folha
