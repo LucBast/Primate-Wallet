@@ -72,7 +72,12 @@ export type ListRowProps = {
   readonly titleStyle?: TextStyle | undefined;
   /** Selo ao lado do título — "parcela 03/10" na 1f. */
   readonly badge?: React.ReactNode | undefined;
-  readonly meta?: string | undefined;
+  /**
+   * Texto, ou um nó quando a meta tem duas cores — "Bruno · Família" da 2a,
+   * onde só o selo de visibilidade é colorido. O nó entra dentro do mesmo
+   * `Text`, então herda variante e tom.
+   */
+  readonly meta?: string | React.ReactNode | undefined;
   /** Cor semântica do meta quando ele carrega status. */
   readonly metaTone?: React.ComponentProps<typeof Text>['tone'];
   readonly left?: React.ReactNode | undefined;

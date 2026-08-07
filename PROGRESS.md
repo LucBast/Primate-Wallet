@@ -58,6 +58,15 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **2a · Lista de contas (claro)** — bate com o screenshot depois de seis
+  correções: título "Contas" (não "Contas e cartões"), "+ Nova conta" como botão
+  primário em brand, rótulos do resumo em caixa alta com "DÍVIDA EM CARTÕES" em
+  expense, linha de conta com círculo claro e iniciais no lugar do ícone
+  genérico ("CC" de Conta Corrente), título com a instituição e selo de
+  visibilidade colorido dentro da meta, e linha de cartão com o bloco do final
+  em cardNavy/cardWine, o titular na meta e o estado da fatura
+  ("● Fatura parcial") — este último exigiu expor `currentStatementStatus` no
+  contrato da conta.
 - **1c · Lançamento rápido (claro)** — a tela era um placeholder de fase; foi
   construída inteira contra o screenshot: folha sobre scrim, segmented
   "↓ Despesa | ↑ Receita | Mais ▾", valor em 44 centralizado com cursor brand,

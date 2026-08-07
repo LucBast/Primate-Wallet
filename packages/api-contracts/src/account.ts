@@ -60,6 +60,11 @@ export const accountSchema = z.object({
   balanceMinor: minorUnitsSchema,
   /** Só para cartão: limite − dívida. */
   availableLimitMinor: minorUnitsSchema.nullable(),
+  /**
+   * Só para cartão: estado da fatura do ciclo corrente, derivado — é o
+   * "● Fatura parcial" da linha do cartão na 2a.
+   */
+  currentStatementStatus: z.enum(['OPEN', 'CLOSED', 'PARTIAL', 'PAID']).nullable(),
 
   archivedAt: z.string().nullable(),
   version: z.int(),

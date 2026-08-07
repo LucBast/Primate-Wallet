@@ -10,6 +10,7 @@ import React from 'react';
 import { StyleSheet, Text as RNText, View } from 'react-native';
 import { useTheme } from '../design-system/theme';
 import { font } from '../design-system/tokens';
+import { withAlpha } from '../design-system/spec-values';
 
 export type AvatarSize = 'sm' | 'md' | 'lg';
 
@@ -32,12 +33,21 @@ export type AvatarProps = {
    * (1f) o círculo é chipNeutral com a inicial em textTertiary, porque ali o
    * membro é contexto e não protagonista.
    */
-  readonly tone?: 'seed' | 'brand' | 'neutral' | undefined;
+  readonly tone?: 'seed' | 'brand' | 'neutral' | 'soft' | undefined;
+  /**
+   * Quantas iniciais mostrar. Pessoas usam uma ("A"); contas usam duas, como o
+   * "CC" de "Conta Corrente" na 2a.
+   */
+  readonly initials?: 1 | 2 | undefined;
 };
 
-function initial(name: string): string {
-  const trimmed = name.trim();
-  return trimmed === '' ? '?' : (trimmed[0] ?? '?').toUpperCase();
+function initial(name: string, count: 1 | 2): string {
+  const words = name.trim().split(/\s+/).filter(Boolean);
+  if (words.length === 0) return '?';
+  return words
+    .slice(0, count)
+    .map((word) => (word[0] ?? '').toUpperCase())
+    .join('');
 }
 
 function hash(value: string): number {
@@ -54,6 +64,7 @@ export function Avatar({
   size = 'md',
   muted = false,
   tone = 'seed',
+  initials = 1,
 }: AvatarProps): React.JSX.Element {
   const { colors, radius } = useTheme();
   const { box, glyph } = SIZES[size];
@@ -61,11 +72,20 @@ export function Avatar({
   // Paleta de avatares: só cores dos tokens.
   const palette = [colors.brand, colors.cardWine, colors.pending, colors.warning, colors.info];
   const neutral = muted || tone === 'neutral';
+  const semantic = palette[hash(seed ?? name) % palette.length] ?? colors.brand;
   const background = neutral
     ? colors.chipNeutral
     : tone === 'brand'
       ? colors.brand
-      : (palette[hash(seed ?? name) % palette.length] ?? colors.brand);
+      : tone === 'soft'
+        ? // Círculo claro com a letra na cor, como as contas da 2a.
+          withAlpha(semantic, 0.14)
+        : semantic;
+  const foreground = neutral
+    ? colors.textTertiary
+    : tone === 'soft'
+      ? semantic
+      : colors.surfaceElevated;
 
   return (
     <View
@@ -78,12 +98,12 @@ export function Avatar({
     >
       <RNText
         style={{
-          color: neutral ? colors.textTertiary : colors.surfaceElevated,
+          color: foreground,
           fontFamily: font.extrabold,
           fontSize: glyph,
         }}
       >
-        {muted ? '?' : initial(name)}
+        {muted ? '?' : initial(name, initials)}
       </RNText>
     </View>
   );

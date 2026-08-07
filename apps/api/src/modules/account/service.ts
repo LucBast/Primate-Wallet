@@ -50,6 +50,7 @@ type AccountRow = {
   default_payment_account_id: string | null;
   balance_minor: number;
   available_limit_minor: number | null;
+  current_statement_status: Account['currentStatementStatus'];
   archived_at: Date | null;
   version: number;
 };
@@ -63,6 +64,10 @@ const ACCOUNT_SELECT = `
   app.account_balance(a.id) AS balance_minor,
   CASE WHEN a.account_type = 'CREDIT_CARD' THEN app.card_available_limit(a.id) END
     AS available_limit_minor,
+  -- Estado da fatura do ciclo corrente: a linha "● Fatura parcial" da 2a.
+  (SELECT app.card_statement_status(s.id) FROM card_statements s
+     WHERE s.account_id = a.id AND s.cycle_start_date <= current_date
+     ORDER BY s.cycle_start_date DESC LIMIT 1) AS current_statement_status,
   a.archived_at, a.version
 `;
 
@@ -89,6 +94,7 @@ function toAccount(row: AccountRow): Account {
     defaultPaymentAccountId: row.default_payment_account_id,
     balanceMinor: row.balance_minor,
     availableLimitMinor: row.available_limit_minor,
+    currentStatementStatus: row.current_statement_status,
     archivedAt: row.archived_at?.toISOString() ?? null,
     version: row.version,
   };

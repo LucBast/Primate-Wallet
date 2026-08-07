@@ -15,6 +15,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import type { Account, VisibilityScope } from '@ff/api-contracts';
 import { add, formatMoney, minor, type MinorUnits, ZERO } from '@ff/domain';
+import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { Card, IconBadge, ListRow, SectionLabel } from '../../components/Card';
 import { ProgressBar } from '../../components/ProgressBar';
@@ -43,6 +44,21 @@ const VISIBILITY_TONE: Record<VisibilityScope, 'brand' | 'warning' | 'pending'> 
   OWNER_ONLY: 'pending',
 };
 
+/** Estado da fatura na linha do cartão (screenshot 2a). */
+const STATEMENT_LABEL = {
+  OPEN: 'Fatura aberta',
+  CLOSED: 'Fatura fechada',
+  PARTIAL: 'Fatura parcial',
+  PAID: 'Fatura paga',
+} as const;
+
+const STATEMENT_TONE = {
+  OPEN: 'secondary',
+  CLOSED: 'warning',
+  PARTIAL: 'warning',
+  PAID: 'income',
+} as const;
+
 export type AccountsScreenProps = {
   readonly onBack: () => void;
   readonly onNewAccount: () => void;
@@ -54,7 +70,7 @@ export function AccountsScreen({
   onNewAccount,
   onOpenAccount,
 }: AccountsScreenProps): React.JSX.Element {
-  const { colors, layout, spacing } = useTheme();
+  const { colors, layout, radius, spacing } = useTheme();
   const accessToken = useSessionStore((state) => state.accessToken);
   const household = useActiveHousehold();
 
@@ -107,19 +123,18 @@ export function AccountsScreen({
   }, [groups]);
 
   const Wallet = icons.cartao;
-  const CardIcon = icons.cartao;
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
       <ScreenHeader
-        title="Contas e cartões"
+        title="Contas"
         onBack={onBack}
         right={
           canManage ? (
+            /* No screenshot o "+ Nova conta" é o botão primário, em brand. */
             <Button
               testID="nova-conta"
               label="+ Nova conta"
-              variant="secondary"
               size="sm"
               onPress={onNewAccount}
               style={styles.headerAction}
@@ -159,13 +174,14 @@ export function AccountsScreen({
             <Card testID="card-resumo">
               <View style={styles.summaryRow}>
                 <View style={styles.summaryItem}>
-                  <Text variant="rowMeta" tone="secondary">
+                  <Text variant="label" tone="secondary">
                     Total em contas
                   </Text>
                   <Text variant="moneyMd">{formatMoney(totals.inAccounts)}</Text>
                 </View>
                 <View style={styles.summaryItem}>
-                  <Text variant="rowMeta" tone="secondary">
+                  {/* O rótulo também é expense no screenshot. */}
+                  <Text variant="label" tone="expense">
                     Dívida em cartões
                   </Text>
                   <Text variant="moneyMd" tone="expense">
@@ -184,13 +200,30 @@ export function AccountsScreen({
                       key={account.id}
                       first={index === 0}
                       testID={`conta-${account.id}`}
-                      title={account.name}
-                      meta={`${account.primaryMemberName ?? 'Família'} · ${VISIBILITY_LABEL[account.visibilityScope]}`}
-                      metaTone={VISIBILITY_TONE[account.visibilityScope]}
+                      // "Conta Corrente · Banco Andar": o nome carrega a
+                      // instituição, como no screenshot.
+                      title={
+                        account.institutionName === null
+                          ? account.name
+                          : `${account.name} · ${account.institutionName}`
+                      }
+                      // "Bruno · Família": só o selo de visibilidade é colorido.
+                      meta={
+                        <>
+                          {`${account.primaryMemberName ?? 'Família'} · `}
+                          <Text variant="rowMeta" tone={VISIBILITY_TONE[account.visibilityScope]}>
+                            {VISIBILITY_LABEL[account.visibilityScope]}
+                          </Text>
+                        </>
+                      }
                       left={
-                        <IconBadge background={colors.brandSoft}>
-                          <Wallet size={iconSize.row} color={colors.brand} />
-                        </IconBadge>
+                        <Avatar
+                          name={account.name}
+                          seed={account.id}
+                          size="sm"
+                          tone="soft"
+                          initials={2}
+                        />
                       }
                       right={
                         <Text
@@ -229,22 +262,52 @@ export function AccountsScreen({
                           onPress={() => onOpenAccount(account)}
                           style={styles.cardTop}
                         >
-                          <IconBadge background={colors.brandSoft}>
-                            <CardIcon size={iconSize.row} color={colors.brand} />
-                          </IconBadge>
+                          {/* Bloco do final do cartão, em cardNavy/cardWine
+                              (COMPONENT-SPECS §2a) — cores decorativas, iguais
+                              nos dois temas. */}
+                          <View
+                            style={[
+                              styles.cardChip,
+                              {
+                                backgroundColor:
+                                  index % 2 === 0 ? colors.cardNavy : colors.cardWine,
+                                borderRadius: radius.sm,
+                              },
+                            ]}
+                          >
+                            <Text variant="rowMeta" tone="onBrand">
+                              {account.cardLastFour ?? '••••'}
+                            </Text>
+                          </View>
                           <View style={styles.cardTexts}>
                             <Text variant="rowTitle">
                               {account.cardLastFour === null
                                 ? account.name
-                                : `${account.name} · • • • • ${account.cardLastFour}`}
+                                : `${account.name} • • • • ${account.cardLastFour}`}
                             </Text>
                             <Text variant="rowMeta" tone="secondary">
-                              {`fecha dia ${account.closingDay ?? '—'} · vence dia ${account.dueDay ?? '—'}`}
+                              {[
+                                `fecha dia ${account.closingDay ?? '—'}`,
+                                `vence dia ${account.dueDay ?? '—'}`,
+                                account.primaryMemberName,
+                              ]
+                                .filter((part): part is string => Boolean(part))
+                                .join(' · ')}
                             </Text>
                           </View>
-                          <Text variant="moneyRow" tone="expense">
-                            {formatMoney(minor(account.balanceMinor))}
-                          </Text>
+                          <View style={styles.cardValue}>
+                            <Text variant="moneyRow" tone="expense">
+                              {formatMoney(minor(account.balanceMinor))}
+                            </Text>
+                            {account.currentStatementStatus === null ? null : (
+                              <Text
+                                variant="rowMeta"
+                                tone={STATEMENT_TONE[account.currentStatementStatus]}
+                              >
+                                {`● ${STATEMENT_LABEL[account.currentStatementStatus]}`}
+                              </Text>
+                            )}
+                          </View>
                         </Pressable>
 
                         <View style={styles.cardLimit}>
@@ -320,11 +383,14 @@ export function AccountsScreen({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingTop: 4 },
-  headerAction: { width: 116 },
+  headerAction: { width: 130 },
   summaryRow: { flexDirection: 'row', gap: 16 },
   summaryItem: { flex: 1, gap: 2 },
   cardRow: { gap: 8, paddingVertical: 11 },
   cardTop: { alignItems: 'center', flexDirection: 'row', gap: 12 },
   cardTexts: { flex: 1, gap: 2 },
+  cardValue: { alignItems: 'flex-end', gap: 2 },
+  // Bloco do final do cartão: 38×26, medido em 2a-contas.png.
+  cardChip: { alignItems: 'center', height: 26, justifyContent: 'center', width: 38 },
   cardLimit: { gap: 4 },
 });
