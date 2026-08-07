@@ -182,11 +182,32 @@ function AppFlow(): React.JSX.Element {
         )}
       </AppStack.Screen>
 
+      {/* O lançamento rápido é uma folha sobre a tela atual (1c): a rota é
+          transparente para que o scrim mostre o que está atrás. */}
       <AppStack.Screen
         name="LancamentoRapido"
-        component={QuickEntryScreen}
-        options={{ presentation: 'modal' }}
-      />
+        options={{ presentation: 'transparentModal', animation: 'none' }}
+      >
+        {({ navigation }) => (
+          <QuickEntryScreen
+            onClose={() => navigation.goBack()}
+            onNavigate={(destination) => {
+              navigation.goBack();
+              if (destination === 'ContaPagar') {
+                navigation.navigate('NovaContaPrevista', { nature: 'PAYABLE' });
+              } else if (destination === 'ContaReceber') {
+                navigation.navigate('NovaContaPrevista', { nature: 'RECEIVABLE' });
+              } else if (destination === 'CompraCartao') {
+                navigation.navigate('CompraCartao');
+              } else if (destination === 'Transferencia') {
+                navigation.navigate('Transferencia');
+              } else {
+                navigation.navigate('Contas');
+              }
+            }}
+          />
+        )}
+      </AppStack.Screen>
 
       <AppStack.Screen name="Familia">
         {({ navigation }) => (

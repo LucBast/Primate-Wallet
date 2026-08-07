@@ -2,7 +2,7 @@
 
 ## Status geral
 
-- Fase atual: **Fase 8 — Experiência rápida (a iniciar)**
+- Fase atual: **Fase 8 — Experiência rápida (lançamento rápido entregue)**
 - Fases concluídas: **0, 1, 2, 3, 4, 5, 6, 7**
 - Última atualização: 2026-08-06
 - Responsável: Claude Code
@@ -58,6 +58,15 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **1c · Lançamento rápido (claro)** — a tela era um placeholder de fase; foi
+  construída inteira contra o screenshot: folha sobre scrim, segmented
+  "↓ Despesa | ↑ Receita | Mais ▾", valor em 44 centralizado com cursor brand,
+  chips de conta/categoria/membro/data, sugestões recentes, teclado numérico
+  próprio (3 colunas, teclas 52, última linha , · 0 · ⌫), "Salvar" com flex 1.6
+  ao lado de "Salvar e lançar outra" e o link "Mais detalhes ▾". Dois defeitos
+  de layout apareceram no caminho: texto de 44 sem `lineHeight` era cortado no
+  Android, e o `BottomSheet` empurrava o rodapé para fora da tela quando o
+  conteúdo passava dos 88% — os dois valem para todas as folhas.
 - **1g · Movimentações (claro)** — bate com o screenshot depois das nove
   divergências abaixo, com despesa, receita, compra no cartão e movimentação
   estornada na tela.

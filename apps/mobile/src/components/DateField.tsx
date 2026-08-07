@@ -9,6 +9,7 @@
 
 import React, { useState } from 'react';
 import DateTimePicker from '@react-native-community/datetimepicker';
+import { SelectorChip } from './Chip';
 import { SelectField } from './SelectField';
 import { dayMonth } from '../services/dates';
 
@@ -21,6 +22,8 @@ export type DateFieldProps = {
   readonly today: string;
   readonly minimum?: string | undefined;
   readonly maximum?: string | undefined;
+  /** `chip` é o "Hoje ▾" do lançamento rápido; `field` é o card da 1e. */
+  readonly variant?: 'field' | 'chip' | undefined;
   readonly testID?: string | undefined;
 };
 
@@ -36,18 +39,27 @@ export function DateField({
   today,
   minimum,
   maximum,
+  variant = 'field',
   testID,
 }: DateFieldProps): React.JSX.Element {
   const [open, setOpen] = useState(false);
 
   return (
     <>
-      <SelectField
-        testID={testID}
-        label={label}
-        value={dateFieldLabel(value, today)}
-        onPress={() => setOpen(true)}
-      />
+      {variant === 'chip' ? (
+        <SelectorChip
+          testID={testID}
+          label={dateFieldLabel(value, today)}
+          onPress={() => setOpen(true)}
+        />
+      ) : (
+        <SelectField
+          testID={testID}
+          label={label}
+          value={dateFieldLabel(value, today)}
+          onPress={() => setOpen(true)}
+        />
+      )}
 
       {open ? (
         <DateTimePicker
