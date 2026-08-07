@@ -58,6 +58,14 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **8f · Detalhe de movimentação (claro)** — bate com o screenshot depois de
+  quatro correções: título fixo "Movimentação" (era a descrição do lançamento),
+  card de cabeçalho com ícone da categoria, "TIPO · ESTADO" em caixa alta,
+  descrição e o chip de envio, campo a campo como **rótulo à esquerda e valor à
+  direita** (eram ListRow empilhados), e o rateio com avatar, percentual e a
+  linha de fechamento "✓ Soma dos rateios = total". **Falta o "Editar"** do
+  cabeçalho: movimentação postada não se edita — corrige-se por estorno, que é
+  o que o próprio banner da tela diz.
 - **8e · Transferência (claro)** — bate com o screenshot depois de seis
   correções: título "Transferência", valor grande **neutro** e centralizado (o
   app usava o MoneyInput com borda brand, que é o card de receita/despesa), o

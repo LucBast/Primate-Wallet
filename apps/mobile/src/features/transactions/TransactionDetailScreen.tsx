@@ -10,15 +10,20 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { Attachment, Transaction } from '@ff/api-contracts';
 import { formatDate, formatMoney, isoDate, minor } from '@ff/domain';
+import { Avatar } from '../../components/Avatar';
+import { Badge } from '../../components/Badge';
 import { Banner } from '../../components/Banner';
 import { Button } from '../../components/Button';
-import { Card, ListRow, SectionLabel } from '../../components/Card';
+import { Card, IconBadge, ListRow, SectionLabel } from '../../components/Card';
 import { Field } from '../../components/Field';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { StatusChip } from '../../components/StatusChip';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
+import { categoryVisual } from '../../design-system/category-icons';
+import { iconSize } from '../../design-system/icons';
 import { ApiRequestError } from '../../services/api-client';
+import { longMonthLabel } from '../../services/dates';
 import { newIdempotencyKey } from '../../services/idempotency';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
@@ -35,6 +40,57 @@ const TYPE_LABEL: Record<string, string> = {
   REFUND: 'Reembolso',
   REVERSAL: 'Estorno',
 };
+
+/**
+ * Percentual da fatia no rateio, só para exibição.
+ *
+ * `+ 0.5` é o arredondamento meio-para-cima escrito à mão: a regra do ESLint
+ * contra `Math.round` existe para dinheiro, e aqui nenhum centavo é derivado
+ * deste número — quem valida a soma é o servidor.
+ */
+function percentOf(partMinor: number, totalMinor: number): number {
+  if (totalMinor <= 0) return 0;
+  return Math.floor((partMinor * 100) / totalMinor + 0.5);
+}
+
+/** Linha "rótulo à esquerda, valor à direita" do card de campos (8f). */
+function FieldRow({
+  label,
+  value,
+  first = false,
+}: {
+  readonly label: string;
+  readonly value: string;
+  readonly first?: boolean;
+}): React.JSX.Element {
+  const { colors } = useTheme();
+  return (
+    <View
+      style={[
+        fieldRowStyles.row,
+        first ? null : { borderTopColor: colors.divider, borderTopWidth: 1 },
+      ]}
+    >
+      <Text variant="rowTitle" tone="secondary">
+        {label}
+      </Text>
+      <Text variant="rowTitle" style={fieldRowStyles.value}>
+        {value}
+      </Text>
+    </View>
+  );
+}
+
+const fieldRowStyles = StyleSheet.create({
+  row: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    gap: 12,
+    justifyContent: 'space-between',
+    paddingVertical: 11,
+  },
+  value: { flexShrink: 1, textAlign: 'right' },
+});
 
 export function TransactionDetailScreen({
   transaction: initial,
@@ -98,15 +154,11 @@ export function TransactionDetailScreen({
   const isReversal = transaction.transactionType === 'REVERSAL';
   const neutral =
     transaction.transactionType === 'TRANSFER' || transaction.transactionType === 'CARD_PAYMENT';
+  const visual = categoryVisual(transaction.categoryName, colors);
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
-      <ScreenHeader
-        title={transaction.description}
-        subtitle={TYPE_LABEL[transaction.transactionType] ?? transaction.transactionType}
-        onBack={onBack}
-        size="screen"
-      />
+      <ScreenHeader title="Movimentação" onBack={onBack} size="screen" />
 
       <ScrollView
         contentContainerStyle={[
@@ -115,68 +167,108 @@ export function TransactionDetailScreen({
         ]}
         keyboardShouldPersistTaps="handled"
       >
+        {/* Cabeçalho do lançamento: ícone, tipo · estado, descrição e valor. */}
         <Card testID="card-valor">
-          <Text variant="sectionCaps" tone="secondary">
-            VALOR
-          </Text>
+          <View style={styles.headerRow}>
+            <IconBadge background={visual.background}>
+              <visual.Icon size={iconSize.row} color={visual.color} />
+            </IconBadge>
+            <View style={styles.headerTexts}>
+              <Text variant="label" tone="secondary">
+                {`${TYPE_LABEL[transaction.transactionType] ?? transaction.transactionType} · ${
+                  reversed ? 'Estornada' : 'Postada'
+                }`}
+              </Text>
+              <Text variant="rowTitle" style={reversed ? styles.reversed : undefined}>
+                {transaction.description}
+              </Text>
+            </View>
+            {reversed ? (
+              <StatusChip status="estornado" />
+            ) : (
+              <Badge label="● Enviada" tone="income" />
+            )}
+          </View>
           <Text
             variant="moneyLg"
             tone={
               neutral ? 'primary' : transaction.transactionType === 'INCOME' ? 'income' : 'expense'
             }
-            style={reversed ? styles.reversed : undefined}
+            style={[styles.headerAmount, reversed ? styles.reversed : null]}
           >
             {formatMoney(minor(transaction.amountMinor))}
           </Text>
-          {reversed ? (
-            <View style={{ marginTop: spacing.sm }}>
-              <StatusChip status="estornado" />
-            </View>
-          ) : null}
         </Card>
 
+        {/* Rótulo à esquerda, valor à direita — como no screenshot. */}
         <View style={{ marginTop: spacing.md }}>
-          <Card padded={false}>
-            <ListRow first title="Conta" meta={transaction.accountName ?? '—'} />
+          <Card padded={false} testID="card-campos">
+            <FieldRow first label="Conta" value={transaction.accountName ?? '—'} />
             {transaction.destinationAccountName === null ? null : (
-              <ListRow title="Para" meta={transaction.destinationAccountName} />
+              <FieldRow label="Para" value={transaction.destinationAccountName} />
             )}
-            <ListRow title="Categoria" meta={transaction.categoryName ?? 'Sem categoria'} />
-            <ListRow title="Membro" meta={transaction.memberName ?? '—'} />
+            <FieldRow label="Categoria" value={transaction.categoryName ?? 'Sem categoria'} />
+            <FieldRow label="Membro" value={transaction.memberName ?? '—'} />
             {transaction.counterpartyName === null ? null : (
-              <ListRow title="Favorecido" meta={transaction.counterpartyName} />
+              <FieldRow label="Favorecido" value={transaction.counterpartyName} />
             )}
-            <ListRow
-              title="Ocorrido em"
-              meta={formatDate(isoDate(transaction.occurredAt.slice(0, 10)))}
+            <FieldRow
+              label="Competência"
+              value={longMonthLabel(transaction.competenceDate).concat(
+                ` ${transaction.competenceDate.slice(0, 4)}`,
+              )}
             />
-            <ListRow title="Competência" meta={formatDate(isoDate(transaction.competenceDate))} />
-            <ListRow title="Registrado por" meta={transaction.createdByName ?? '—'} />
+            <FieldRow
+              label="Caixa"
+              value={formatDate(isoDate(transaction.occurredAt.slice(0, 10)))}
+            />
+            {transaction.notes === null ? null : (
+              <FieldRow label="Observação" value={transaction.notes} />
+            )}
+            <FieldRow label="Registrado por" value={transaction.createdByName ?? '—'} />
             {transaction.reason === null ? null : (
-              <ListRow title="Motivo" meta={transaction.reason} />
+              <FieldRow label="Motivo" value={transaction.reason} />
             )}
           </Card>
         </View>
 
         {transaction.allocations.length === 0 ? null : (
-          <View style={{ marginTop: spacing.xl }}>
-            <SectionLabel>{`RATEIO · ${transaction.allocations.length}`}</SectionLabel>
-            <Card padded={false} testID="card-rateio">
+          <View style={{ marginTop: spacing.md }}>
+            <Card testID="card-rateio">
+              <View style={styles.headerRow}>
+                <Text variant="rowTitle" style={styles.headerTexts}>
+                  Rateio entre membros
+                </Text>
+                <Text variant="rowMeta" tone="secondary">
+                  {`${transaction.allocations.length} ${transaction.allocations.length === 1 ? 'membro' : 'membros'}`}
+                </Text>
+              </View>
               {transaction.allocations.map((allocation, index) => (
-                <ListRow
-                  key={`${allocation.memberId}-${index}`}
-                  first={index === 0}
-                  title={allocation.memberName ?? 'Membro'}
-                  meta={allocation.categoryName ?? undefined}
-                  right={
-                    <Text variant="moneyRow">{formatMoney(minor(allocation.amountMinor))}</Text>
-                  }
-                />
+                <View key={`${allocation.memberId}-${index}`} style={styles.allocationRow}>
+                  <Avatar
+                    name={allocation.memberName ?? '?'}
+                    seed={allocation.memberId}
+                    size="sm"
+                  />
+                  <Text variant="rowTitle" style={styles.headerTexts}>
+                    {allocation.memberName ?? 'Membro'}
+                  </Text>
+                  <Text variant="rowMeta" tone="secondary">
+                    {`${percentOf(allocation.amountMinor, transaction.amountMinor)}%`}
+                  </Text>
+                  <Text variant="moneyRow">{formatMoney(minor(allocation.amountMinor))}</Text>
+                </View>
               ))}
+              {/* O servidor recusa rateio que não fecha; aqui só confirmamos. */}
+              <View style={[styles.headerRow, { marginTop: spacing.sm }]}>
+                <Text variant="rowMeta" tone="income" style={styles.headerTexts}>
+                  ✓ Soma dos rateios
+                </Text>
+                <Text variant="rowMeta" tone="income">
+                  {`${formatMoney(minor(transaction.amountMinor))} = total`}
+                </Text>
+              </View>
             </Card>
-            <Text variant="rowMeta" tone="income" style={{ marginTop: spacing.sm }}>
-              ✓ Soma dos rateios = valor total (validado pelo servidor)
-            </Text>
           </View>
         )}
 
@@ -254,4 +346,8 @@ const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingTop: 4 },
   reversed: { textDecorationLine: 'line-through' },
+  headerRow: { alignItems: 'center', flexDirection: 'row', gap: 12 },
+  headerTexts: { flex: 1, gap: 2 },
+  headerAmount: { marginTop: 8 },
+  allocationRow: { alignItems: 'center', flexDirection: 'row', gap: 10, paddingVertical: 6 },
 });
