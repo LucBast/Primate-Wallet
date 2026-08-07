@@ -36,11 +36,37 @@ screenshots.
   `dark`. Varredura de 5 colunas não encontrou nenhum hex do `light` — o único
   #FFFFFF está em y=6–8dp, que é o relógio do Android, fora do app.
 
-### Telas com gate iniciado
+### Telas REPROVADAS no gate
 
-Nenhuma. Restam 1d, 1e, 1f, 1g, 2a–2e, 3a, 3b, 3d e 4a–4d, mais o tema escuro
-delas. O ferramental está pronto e o custo por tela é baixo; foi só falta de
-tempo de sessão.
+**1d · Planejamento** — comparada com `1d-planejamento.png`. Sete divergências,
+três delas estruturais. NÃO corrigidas ainda:
+
+1. **Falta o segmented "A pagar | A receber | Calendário"** no topo. O app não
+   tem essa navegação — só lista contas a pagar. "A receber" e "Calendário" não
+   existem como visão.
+2. **Falta o seletor de mês "‹ Ago 2026 ›"** no cabeçalho; o app põe "+ Nova"
+   nesse lugar. O design tem os dois: título à esquerda, mês à direita.
+3. **Linhas pagas não aparecem.** O design mostra "Plano de saúde" com
+   line-through e "● Paga em 04/08 · Conta Corrente"; o app filtra pagas da
+   lista.
+4. **Baixa parcial não mostra progresso na lista.** O design traz
+   "● Parcial · falta R$ 510,10 de R$ 910,10" com barra e ação "Completar ›";
+   o app mostra só o status.
+5. **Status como chip, onde o design usa texto inline.** O app renderiza uma
+   pílula com fundo; o design põe ponto + texto direto na linha de meta, e a
+   ação ("Dar baixa ›" / "Completar ›") vai à direita, abaixo do valor.
+6. **Copy: "Vencido" onde o design escreve "Vencida"** — concorda com "conta".
+   Verificar o mesmo nas demais telas.
+7. **Rótulos dos três KPI em caixa normal**; o design usa caixa alta
+   (PREVISTO · PAGO · FALTA PAGAR). As cores já batem.
+
+Também difere a data na meta: o app escreve `vence 08/08/2026`, o design
+`vence sáb, 08/08` — mesmo formato já corrigido na 1b, ainda não propagado aqui.
+
+### Telas ainda sem gate
+
+1e, 1f, 1g, 2a–2e, 3a, 3b, 3d, 4a–4d e as sete do Turno 8 (8a–8g), mais o tema
+escuro de todas. O ferramental está pronto e o custo por tela é baixo.
 
 ### Divergências encontradas e corrigidas
 
