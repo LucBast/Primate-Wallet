@@ -64,6 +64,10 @@ Registro das decisões tomadas durante a implementação, conforme o processo do
 
 | D-051 | O seletor de data é o nativo do sistema (`@react-native-community/datetimepicker`), embrulhado em `DateField` | A 1e mostra "DATA · Hoje, 06/08 ▾", um select, não um campo onde se digita "2026-08-08". A proibição do CLAUDE.md item 4 é a kits de UI com tema próprio (Paper, NativeBase…); um seletor que abre o calendário do sistema operacional não desenha nada dentro da tela. A caixa fechada é o `SelectField`, que é o `Field` do COMPONENT-SPECS. |
 
+| D-052 | A parcela da compra no cartão é coluna de `transactions`, não sufixo da descrição | O servidor gravava "Curso de inglês · parcela 03/10" como nome da movimentação, o que contaminaria busca, relatório e exportação. O screenshot 1f mostra o título limpo com um selo ao lado. Migração 0014 acrescenta `installment_group_id/number/total` e resgata as linhas já gravadas a partir do sufixo. |
+| D-053 | `ajuste` usa o ícone `diff` do lucide | COMPONENT-SPECS pede `plus-minus`; esse nome não existe em lucide-react-native 1.29 e `diff` é exatamente o mesmo desenho (um mais sobre um menos). |
+| D-054 | A tela 1g não lista a movimentação de estorno como linha própria | O screenshot mostra a original riscada com "● Estornada · motivo: … · por Ana"; listar as duas contaria o mesmo fato duas vezes. O registro de REVERSAL continua existindo e é dele que sai o motivo exibido. |
+
 ## Decisões que exigem validação humana antes de produção
 
 - Provedor de e-mail transacional (envio de confirmação e magic link).

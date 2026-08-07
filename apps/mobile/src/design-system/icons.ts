@@ -22,8 +22,10 @@ import {
   Eye,
   EyeOff,
   House,
+  Diff,
   Plus,
   RotateCcw,
+  Search,
   Zap,
   type LucideIcon,
 } from 'lucide-react-native';
@@ -42,8 +44,13 @@ export const icons = {
   transferencia: ArrowLeftRight,
   estorno: RotateCcw,
   cartao: CreditCard,
+  // COMPONENT-SPECS §Ícones por categoria pede `plus-minus` para o ajuste de
+  // saldo; este lucide não tem esse nome, e `diff` é o mesmo desenho (um mais
+  // sobre um menos). Registrado em docs/21-DECISIONS.md.
+  ajuste: Diff,
 
-  // Apoio (⌫ ⚡ 🔔 ✓)
+  // Apoio (⌕ ⌫ ⚡ 🔔 ✓)
+  buscar: Search,
   confirmado: Check,
   apagar: Delete,
   energia: Zap,

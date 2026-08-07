@@ -85,6 +85,9 @@ export const transactionSchema = z.object({
   reason: z.string().nullable(),
   /** Estorno que anulou esta movimentação, quando existe. */
   reversalTransactionId: uuidSchema.nullable(),
+  /** Motivo e autor do estorno — "● Estornada · motivo: … · por Ana" (1g). */
+  reversalReason: z.string().nullable(),
+  reversedByName: z.string().nullable(),
   reversedTransactionId: uuidSchema.nullable(),
   plannedEntryId: uuidSchema.nullable(),
   allocations: z.array(allocationSchema),

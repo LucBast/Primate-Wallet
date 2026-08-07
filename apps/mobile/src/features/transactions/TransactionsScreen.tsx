@@ -15,16 +15,17 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import type { Transaction, TransactionType } from '@ff/api-contracts';
-import { formatDate, formatMoney, isoDate, minor } from '@ff/domain';
+import { familyToday, formatMoney, isoDate, minor, monthRange } from '@ff/domain';
+import { Banner } from '../../components/Banner';
 import { Card, IconBadge, ListRow, SectionLabel } from '../../components/Card';
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { StatusChip } from '../../components/StatusChip';
 import { EmptyState, RecoverableError, SkeletonList } from '../../components/states';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { icons, iconSize } from '../../design-system/icons';
 import { font, type as typeTokens } from '../../design-system/tokens';
 import { ApiRequestError } from '../../services/api-client';
+import { dayHeader, longMonthLabel } from '../../services/dates';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
 import { useReferenceStore } from '../household/reference-store';
@@ -37,35 +38,70 @@ const TYPE_NOTE: Partial<Record<TransactionType, string>> = {
   CARD_PURCHASE: 'consome limite do cartão',
 };
 
-const TYPE_LABEL: Record<TransactionType, string> = {
-  EXPENSE: 'Despesa',
-  INCOME: 'Receita',
-  TRANSFER: 'Transferência',
-  CARD_PURCHASE: 'Compra no cartão',
-  CARD_PAYMENT: 'Pagamento de fatura',
-  ADJUSTMENT: 'Ajuste de saldo',
-  REFUND: 'Reembolso',
-  REVERSAL: 'Estorno',
-};
-
-/** Ícone e cor por tipo (UI-FIDELITY §Ícones). */
-function iconFor(type: TransactionType) {
+/**
+ * Ícone da NATUREZA da movimentação (COMPONENT-SPECS §Ícones por categoria):
+ * "arrow-down expense · arrow-up income · arrows-left-right transferência
+ * (chipNeutral/textTertiary) · rotate-ccw estorno · credit-card pagamento de
+ * fatura · plus-minus ajuste". Compra no cartão é despesa: usa a seta, não o
+ * cartão — o cartão é do PAGAMENTO da fatura.
+ */
+function visualFor(
+  type: TransactionType,
+  colors: ReturnType<typeof useTheme>['colors'],
+): { Icon: (typeof icons)[keyof typeof icons]; color: string; background: string } {
   switch (type) {
     case 'INCOME':
     case 'REFUND':
-      return { Icon: icons.receita, tone: 'income' as const };
+      return { Icon: icons.receita, color: colors.income, background: colors.incomeSoft };
     case 'TRANSFER':
+      return {
+        Icon: icons.transferencia,
+        color: colors.textTertiary,
+        background: colors.chipNeutral,
+      };
     case 'CARD_PAYMENT':
-      return { Icon: icons.transferencia, tone: 'info' as const };
+      return { Icon: icons.cartao, color: colors.info, background: colors.infoSoft };
     case 'REVERSAL':
-      return { Icon: icons.estorno, tone: 'secondary' as const };
-    case 'CARD_PURCHASE':
-      return { Icon: icons.cartao, tone: 'expense' as const };
+      return { Icon: icons.estorno, color: colors.textTertiary, background: colors.chipNeutral };
     case 'ADJUSTMENT':
-      return { Icon: icons.mais, tone: 'warning' as const };
+      return { Icon: icons.ajuste, color: colors.warning, background: colors.warningSoft };
     default:
-      return { Icon: icons.despesa, tone: 'expense' as const };
+      return { Icon: icons.despesa, color: colors.expense, background: colors.expenseSoft };
   }
+}
+
+/**
+ * Meta da linha, na ordem do screenshot: quando há estado, é ele que fala
+ * ("● Aguardando aprovação · não afeta saldo"); quando não há, a linha diz de
+ * onde saiu — conta · membro · categoria. O tipo da movimentação NÃO aparece:
+ * quem diz o tipo é o ícone.
+ */
+function metaFor(item: Transaction): string {
+  if (item.status === 'REVERSED') {
+    return [
+      '● Estornada',
+      item.reversalReason === null ? null : `motivo: ${item.reversalReason}`,
+      item.reversedByName === null ? null : `por ${item.reversedByName}`,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(' · ');
+  }
+  if (item.status === 'PENDING_APPROVAL') return '● Aguardando aprovação · não afeta saldo';
+
+  if (item.transactionType === 'TRANSFER') {
+    return [
+      item.accountName === null || item.destinationAccountName === null
+        ? item.accountName
+        : `${item.accountName} → ${item.destinationAccountName}`,
+      TYPE_NOTE.TRANSFER,
+    ]
+      .filter((part): part is string => Boolean(part))
+      .join(' · ');
+  }
+
+  return [item.accountName, item.memberName, item.categoryName, TYPE_NOTE[item.transactionType]]
+    .filter((part): part is string => Boolean(part))
+    .join(' · ');
 }
 
 type FilterKey = 'periodo' | 'conta' | 'categoria' | 'membro' | 'status';
@@ -82,16 +118,25 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
 
   const [search, setSearch] = useState('');
   const [filters, setFilters] = useState<Partial<Record<FilterKey, string>>>({});
+  /** O período começa aplicado no mês corrente, como o "Agosto ✕" do design. */
+  const [period, setPeriod] = useState(true);
   const [items, setItems] = useState<Transaction[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [offline, setOffline] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+
+  const today =
+    household === null
+      ? isoDate(new Date().toISOString().slice(0, 10))
+      : familyToday(household.timezone);
+  const range = useMemo(() => monthRange(today), [today]);
 
   const load = useCallback(async () => {
     if (!accessToken || !household) return;
     setError(null);
     try {
       const page = await api.listTransactions(accessToken, household.id, {
+        ...(period ? { from: range.start, to: range.end } : {}),
         ...(search.trim() === '' ? {} : { search: search.trim() }),
         ...(filters.conta === undefined ? {} : { accountId: filters.conta }),
         ...(filters.categoria === undefined ? {} : { categoryId: filters.categoria }),
@@ -114,17 +159,25 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
           : 'Não foi possível carregar as movimentações agora.',
       );
     }
-  }, [accessToken, filters, household, search]);
+  }, [accessToken, filters, household, period, range.end, range.start, search]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), search === '' ? 0 : 300);
     return () => clearTimeout(timer);
   }, [load, search]);
 
-  /** Agrupa por dia, como no screenshot. */
+  /**
+   * Agrupa por dia, como no screenshot.
+   *
+   * A movimentação de estorno não vira linha própria: o screenshot mostra a
+   * original riscada com "● Estornada · motivo: … · por Ana", e listar as duas
+   * contaria o mesmo fato duas vezes. O registro continua existindo — é ele
+   * que carrega o motivo exibido na linha original.
+   */
   const days = useMemo(() => {
     const groups = new Map<string, Transaction[]>();
     for (const item of items ?? []) {
+      if (item.transactionType === 'REVERSAL') continue;
       const day = item.occurredAt.slice(0, 10);
       const bucket = groups.get(day);
       if (bucket) bucket.push(item);
@@ -142,7 +195,7 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
     });
   }, []);
 
-  const Search = icons.movimentacoes;
+  const Buscar = icons.buscar;
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
@@ -159,7 +212,7 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
             },
           ]}
         >
-          <Search size={iconSize.row} color={colors.textSecondary} />
+          <Buscar size={iconSize.row} color={colors.textSecondary} />
           <TextInput
             testID="campo-busca"
             accessibilityLabel="Buscar movimentações"
@@ -182,11 +235,26 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
+        // Sem isto a fila de filtros é espremida pela lista e os rótulos ficam
+        // cortados: num ScrollView horizontal a altura vem do conteúdo, e o
+        // irmão de baixo precisa ser o único a crescer.
+        style={styles.filtersRow}
         contentContainerStyle={[
           styles.filters,
           { paddingHorizontal: layout.screenPaddingH, paddingVertical: spacing.md },
         ]}
       >
+        {/* "Agosto ✕" — o período começa aplicado, como no screenshot. */}
+        <FilterPill
+          label="Período"
+          value={
+            period
+              ? longMonthLabel(range.start).replace(/^./, (letter) => letter.toUpperCase())
+              : undefined
+          }
+          onPress={() => setPeriod(true)}
+          onClear={() => setPeriod(false)}
+        />
         <FilterPill
           label="Conta"
           value={reference.accounts.find((account) => account.id === filters.conta)?.name}
@@ -225,6 +293,7 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
       </ScrollView>
 
       <ScrollView
+        style={styles.list}
         contentContainerStyle={[
           styles.content,
           { paddingHorizontal: layout.screenPaddingH, paddingBottom: spacing.xxxl },
@@ -241,9 +310,11 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
       >
         {offline ? (
           <View style={{ marginBottom: spacing.md }}>
-            <Text variant="rowMeta" tone="info">
-              ◌ Sem conexão — mostrando dados salvos
-            </Text>
+            <Banner
+              kind="offline"
+              testID="banner-offline"
+              message="Sem conexão — mostrando dados salvos."
+            />
           </View>
         ) : null}
 
@@ -263,94 +334,67 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
         ) : (
           days.map(([day, group]) => (
             <View key={day} style={{ marginBottom: spacing.xl }}>
-              <SectionLabel>{formatDate(isoDate(day)).toUpperCase()}</SectionLabel>
+              <SectionLabel>{dayHeader(day, today)}</SectionLabel>
               <Card padded={false} testID={`dia-${day}`}>
                 {group.map((item, index) => {
-                  const { Icon } = iconFor(item.transactionType);
                   const reversed = item.status === 'REVERSED';
+                  // Movimentação estornada troca o ícone da natureza pelo do
+                  // estorno, em neutro — é assim que o screenshot marca a
+                  // linha riscada de "Jantar restaurante".
+                  const visual = visualFor(reversed ? 'REVERSAL' : item.transactionType, colors);
                   const pending = item.status === 'PENDING_APPROVAL';
                   const neutral =
-                    item.transactionType === 'TRANSFER' || item.transactionType === 'CARD_PAYMENT';
+                    item.transactionType === 'TRANSFER' ||
+                    item.transactionType === 'CARD_PAYMENT' ||
+                    item.transactionType === 'REVERSAL';
                   const positive =
                     item.transactionType === 'INCOME' || item.transactionType === 'REFUND';
 
-                  const note = TYPE_NOTE[item.transactionType];
-                  const meta = [
-                    TYPE_LABEL[item.transactionType],
-                    item.categoryName,
-                    item.memberName,
-                    pending ? 'não afeta saldo' : note,
-                    reversed && item.reason !== null ? `motivo: ${item.reason}` : null,
-                  ]
-                    .filter((part): part is string => Boolean(part))
-                    .join(' · ');
-
                   return (
-                    <View key={item.id}>
-                      <ListRow
-                        first={index === 0}
-                        testID={`movimentacao-${item.id}`}
-                        title={item.description}
-                        meta={meta}
-                        metaTone={pending ? 'pending' : 'secondary'}
-                        onPress={() => onOpen(item)}
-                        left={
-                          <IconBadge
-                            background={
-                              positive
-                                ? colors.incomeSoft
-                                : neutral
-                                  ? colors.infoSoft
-                                  : reversed
-                                    ? colors.chipNeutral
-                                    : colors.expenseSoft
-                            }
-                          >
-                            <Icon
-                              size={iconSize.row}
-                              color={
-                                positive
-                                  ? colors.income
-                                  : neutral
-                                    ? colors.info
-                                    : reversed
-                                      ? colors.textSecondary
-                                      : colors.expense
-                              }
-                            />
-                          </IconBadge>
-                        }
-                        right={
-                          <Text
-                            variant="moneyRow"
-                            tone={
-                              reversed
-                                ? 'secondary'
-                                : neutral
-                                  ? 'tertiary'
-                                  : positive
-                                    ? 'income'
-                                    : 'expense'
-                            }
-                            style={reversed ? styles.reversed : undefined}
-                          >
-                            {neutral
-                              ? formatMoney(minor(item.amountMinor), { signDisplay: 'never' })
-                              : formatMoney(
-                                  minor(positive ? item.amountMinor : -item.amountMinor),
-                                  {
-                                    signDisplay: 'always',
-                                  },
-                                )}
-                          </Text>
-                        }
-                      />
-                      {reversed || pending ? (
-                        <View style={styles.chipRow}>
-                          <StatusChip status={pending ? 'aguardandoAprovacao' : 'estornado'} />
-                        </View>
-                      ) : null}
-                    </View>
+                    <ListRow
+                      key={item.id}
+                      first={index === 0}
+                      testID={`movimentacao-${item.id}`}
+                      title={
+                        item.transactionType === 'TRANSFER' && item.destinationAccountName !== null
+                          ? `Transferência → ${item.destinationAccountName}`
+                          : item.description
+                      }
+                      titleStyle={
+                        reversed ? { ...styles.reversed, color: colors.textSecondary } : undefined
+                      }
+                      meta={metaFor(item)}
+                      metaTone={pending ? 'pending' : 'secondary'}
+                      onPress={() => onOpen(item)}
+                      left={
+                        <IconBadge background={visual.background}>
+                          <visual.Icon size={iconSize.row} color={visual.color} />
+                        </IconBadge>
+                      }
+                      right={
+                        <Text
+                          variant="moneyRow"
+                          tone={
+                            reversed || neutral
+                              ? 'tertiary'
+                              : pending
+                                ? 'pending'
+                                : positive
+                                  ? 'income'
+                                  : 'expense'
+                          }
+                        >
+                          {/* Transferência, pagamento de fatura e estorno saem
+                              sem sinal e em textTertiary: nenhum deles é
+                              despesa nem receita (COMPONENT-SPECS §ListRow). */}
+                          {neutral || reversed || pending
+                            ? formatMoney(minor(item.amountMinor), { signDisplay: 'never' })
+                            : formatMoney(minor(positive ? item.amountMinor : -item.amountMinor), {
+                                signDisplay: 'always',
+                              })}
+                        </Text>
+                      }
+                    />
                   );
                 })}
               </Card>
@@ -402,6 +446,8 @@ function FilterPill({
 
 const styles = StyleSheet.create({
   flex: { flex: 1 },
+  list: { flex: 1 },
+  filtersRow: { flexGrow: 0 },
   content: { paddingTop: 4 },
   search: {
     alignItems: 'center',

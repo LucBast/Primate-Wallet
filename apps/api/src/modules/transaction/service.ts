@@ -51,6 +51,8 @@ type TransactionRow = {
   notes: string | null;
   reason: string | null;
   reversal_transaction_id: string | null;
+  reversal_reason: string | null;
+  reversed_by_name: string | null;
   reversed_transaction_id: string | null;
   planned_entry_id: string | null;
   created_by_name: string | null;
@@ -65,6 +67,12 @@ const TX_SELECT = `
   t.notes, t.reason,
   (SELECT r.id FROM transactions r WHERE r.reversed_transaction_id = t.id)
     AS reversal_transaction_id,
+  -- O motivo e o autor do estorno moram na transação de REVERSAL; a linha
+  -- "● Estornada · motivo: valor errado · por Ana" da 1g precisa dos dois.
+  (SELECT r.reason FROM transactions r WHERE r.reversed_transaction_id = t.id)
+    AS reversal_reason,
+  (SELECT rp.name FROM transactions r JOIN profiles rp ON rp.id = r.created_by
+     WHERE r.reversed_transaction_id = t.id) AS reversed_by_name,
   t.reversed_transaction_id,
   (SELECT s.planned_entry_id FROM settlements s WHERE s.transaction_id = t.id)
     AS planned_entry_id,
@@ -145,6 +153,8 @@ function toTransaction(
     notes: row.notes,
     reason: row.reason,
     reversalTransactionId: row.reversal_transaction_id,
+    reversalReason: row.reversal_reason,
+    reversedByName: row.reversed_by_name,
     reversedTransactionId: row.reversed_transaction_id,
     plannedEntryId: row.planned_entry_id,
     allocations,

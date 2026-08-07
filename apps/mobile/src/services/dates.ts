@@ -50,3 +50,17 @@ export function dueLabel(iso: string): string {
   // pt-BR devolve "sáb., 08/08"; o screenshot não tem o ponto do dia da semana.
   return WEEKDAY_DAY_MONTH.format(atNoon(iso)).replace('.,', ',');
 }
+
+/**
+ * Cabeçalho de dia do extrato (1g): "Hoje · qui, 06/08", "Ontem · qua, 05/08",
+ * "ter, 04/08". O SectionLabel põe em caixa alta.
+ */
+export function dayHeader(iso: string, today: string): string {
+  // Duas datas civis em UTC: a diferença é múltipla exata de um dia, então
+  // truncar basta — e a regra do ESLint contra Math.round é sobre dinheiro.
+  const dias = Math.trunc(
+    (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${iso}T00:00:00Z`)) / 86_400_000,
+  );
+  const rotulo = dias === 0 ? 'Hoje · ' : dias === 1 ? 'Ontem · ' : '';
+  return `${rotulo}${dueLabel(iso)}`;
+}

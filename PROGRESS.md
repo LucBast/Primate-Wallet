@@ -58,6 +58,35 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **1g · Movimentações (claro)** — bate com o screenshot depois das nove
+  divergências abaixo, com despesa, receita, compra no cartão e movimentação
+  estornada na tela.
+
+### Divergências da 1g, corrigidas
+
+1. **Rótulos dos filtros cortados a um pixel de altura.** A fila de filtros é um
+   ScrollView horizontal e estava sendo espremida pela lista; faltava `flex: 1`
+   na lista e `flexGrow: 0` na fila.
+2. **Faltava o filtro de período** ("Agosto ✕", aplicado por padrão).
+3. **Ícone da busca era o ⇄ da navegação**, não a lupa.
+4. **Cabeçalho de dia em "07/08/2026"**; o design escreve "HOJE · QUI, 06/08",
+   "ONTEM · QUA, 05/08", "TER, 04/08".
+5. **Meta começando pelo tipo da movimentação** ("Despesa · Moradia · Ana"). O
+   design não repete em texto o que o ícone já diz: é conta · membro ·
+   categoria, ou o estado quando existe.
+6. **Compra no cartão com ícone de cartão.** COMPONENT-SPECS §Ícones: no extrato
+   o ícone é da NATUREZA — compra no cartão é despesa (seta para baixo); o
+   cartão é o do PAGAMENTO da fatura. Transferência e estorno passam a
+   chipNeutral/textTertiary, e o ajuste ganhou o ícone que faltava.
+7. **Transferência, pagamento de fatura e estorno com sinal e cor de despesa.**
+   Nenhum é despesa: valor neutro, sem sinal.
+8. **Estado como pílula abaixo da linha**; o design põe "● Estornada · motivo:
+   valor errado · por Ana" na própria meta, com o título riscado. Isso exigiu
+   expor o motivo e o autor do estorno no contrato — eles moram na movimentação
+   de REVERSAL, não na original.
+9. **A movimentação de estorno virava linha própria**, contando o mesmo fato
+   duas vezes. O screenshot mostra só a original riscada.
+
 ### Divergências da 1f, corrigidas
 
 1. **Navegação entre faturas numa linha própria**, com chevrons e o intervalo do
