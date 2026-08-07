@@ -40,6 +40,23 @@ export const navAddShadow = {
 /** COMPONENT-SPECS §Botões: bordas de 1.5 nos botões secundários. */
 export const secondaryBorderWidth = 1.5;
 
+/**
+ * Aplica opacidade a uma cor dos tokens.
+ *
+ * COMPONENT-SPECS pede fundos como "rgba(122,58,94,0.12)" para categorias sem
+ * um token *Soft* próprio. rgb(122,58,94) é exatamente `cardWine` (#7A3A5E),
+ * então a cor é DERIVADA do token em vez de escrita como literal — o mesmo
+ * princípio já usado na sombra do botão central da BottomNav.
+ */
+export function withAlpha(token: string, alpha: number): string {
+  const hex = token.replace('#', '');
+  const value = parseInt(hex, 16);
+  const r = (value >> 16) & 255;
+  const g = (value >> 8) & 255;
+  const b = value & 255;
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
 // O texto dos banners virou o token `type.banner` (fontSize 10.5, lineHeight 16)
 // em CLARIFICATIONS-01, e a altura do Field passou a decorrer dos lineHeight dos
 // tokens. Os dois valores que existiam aqui para cobrir essas lacunas saíram.

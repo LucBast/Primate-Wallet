@@ -311,6 +311,7 @@ export function createReportService(deps: { readonly db: Database }) {
                 nature: row.nature,
                 overdue: dueDate < today,
                 meta: row.category_name,
+                categoryName: row.category_name,
               };
             }),
             ...upcomingStatements.rows.map((row) => {
@@ -330,6 +331,7 @@ export function createReportService(deps: { readonly db: Database }) {
                 nature: 'PAYABLE' as const,
                 overdue: dueDate < today,
                 meta: `fecha ${dayMonth(row.closing_date)} · vence ${dayMonth(row.due_date)}`,
+                categoryName: null,
               };
             }),
           ]

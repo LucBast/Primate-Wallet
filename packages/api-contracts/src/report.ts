@@ -57,6 +57,13 @@ export const dashboardSchema = z.object({
       nature: z.enum(['PAYABLE', 'RECEIVABLE']),
       overdue: z.boolean(),
       meta: z.string().nullable(),
+      /**
+       * Categoria da conta prevista, para o app escolher o ícone da linha
+       * (COMPONENT-SPECS §Ícones por categoria). Separado de `meta`, que é
+       * texto de exibição e não serve para decidir ícone. Nulo em fatura, que
+       * tem ícone próprio (credit-card).
+       */
+      categoryName: z.string().nullable(),
     }),
   ),
   byMember: z.array(

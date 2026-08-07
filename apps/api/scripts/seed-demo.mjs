@@ -113,6 +113,12 @@ async function main() {
 
   for (const [nome, natureza] of [
     ['Moradia', 'EXPENSE'],
+    // Contas da casa têm categoria própria: o COMPONENT-SPECS dá um ícone para
+    // cada uma (zap, wifi, droplets) e o screenshot 1b mostra ⚡ na linha da
+    // energia. Com tudo dentro de "Moradia" apareceria uma casa nas três.
+    ['Energia', 'EXPENSE'],
+    ['Internet', 'EXPENSE'],
+    ['Água', 'EXPENSE'],
     ['Alimentação', 'EXPENSE'],
     ['Transporte', 'EXPENSE'],
     ['Saúde', 'EXPENSE'],
@@ -173,10 +179,10 @@ async function main() {
   console.log('Criando contas previstas…');
   for (const p of [
     // As duas vencidas do banner "2 contas vencidas · R$ 640,00".
-    { d: 'Água', v: 24_000, dia: 3, cat: 'Moradia', quem: anaId },
+    { d: 'Água', v: 24_000, dia: 3, cat: 'Água', quem: anaId },
     { d: 'Condomínio', v: 40_000, dia: 5, cat: 'Moradia', quem: anaId },
     // O próximo compromisso do dashboard.
-    { d: 'Energia elétrica', v: 31_240, dia: 8, cat: 'Moradia', quem: anaId },
+    { d: 'Energia elétrica', v: 31_240, dia: 8, cat: 'Energia', quem: anaId },
     { d: 'Plano de saúde', v: 120_000, dia: 20, cat: 'Saúde', quem: brunoId },
     { d: 'Escola do Caio', v: 89_000, dia: 25, cat: 'Educação', quem: caioId },
   ]) {
@@ -253,7 +259,7 @@ async function main() {
     { d: 'Restaurante', v: 50_000, dia: 6, conta: cartao, quem: brunoId, cat: 'Alimentação' },
     { d: 'Material escolar', v: 34_045, dia: 4, conta: cartao, quem: caioId, cat: 'Educação' },
     { d: 'Lanche da escola', v: 22_955, dia: 6, conta: cartao, quem: caioId, cat: 'Alimentação' },
-    { d: 'Internet', v: 38_990, dia: 3, conta: cartao, quem: brunoId, cat: 'Moradia' },
+    { d: 'Internet', v: 38_990, dia: 3, conta: cartao, quem: brunoId, cat: 'Internet' },
     // Nas contas bancárias.
     { d: 'Farmácia', v: 35_000, dia: 4, conta: corrente, quem: anaId, cat: 'Saúde' },
     { d: 'Aluguel', v: 172_045, dia: 5, conta: corrente, quem: brunoId, cat: 'Moradia' },

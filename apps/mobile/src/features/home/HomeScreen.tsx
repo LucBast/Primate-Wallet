@@ -28,6 +28,7 @@ import { EmptyState, RecoverableError, SkeletonList } from '../../components/sta
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { icons, iconSize } from '../../design-system/icons';
+import { categoryVisual } from '../../design-system/category-icons';
 import { ApiRequestError } from '../../services/api-client';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold, useHouseholdStore } from '../household/household-store';
@@ -348,17 +349,12 @@ export function HomeScreen({
                     // textPrimary sem sinal, porque fatura não é despesa.
                     const fatura = item.kind === 'CARD_STATEMENT';
                     const receita = item.nature === 'RECEIVABLE';
-                    const Icone = fatura ? icons.cartao : receita ? icons.receita : icons.despesa;
-                    const corIcone = fatura
-                      ? colors.brand
-                      : receita
-                        ? colors.income
-                        : colors.expense;
-                    const fundoIcone = fatura
-                      ? colors.brandSoft
-                      : receita
-                        ? colors.incomeSoft
-                        : colors.expenseSoft;
+                    // Compromisso usa o ícone da CATEGORIA (COMPONENT-SPECS
+                    // §Ícones por categoria); a fatura tem o seu, credit-card.
+                    const visual = categoryVisual(item.categoryName, colors);
+                    const Icone = fatura ? icons.cartao : visual.Icon;
+                    const corIcone = fatura ? colors.brand : visual.color;
+                    const fundoIcone = fatura ? colors.brandSoft : visual.background;
 
                     return (
                       <ListRow
