@@ -1,14 +1,19 @@
 /**
  * Tela 1d — Planejamento (screenshots/1d-planejamento.png).
  *
- * Blocos, na ordem da especificação:
- *   1. Título + mês navegável
+ * Blocos, na ordem do screenshot:
+ *   1. Cabeçalho: "Planejamento" + seletor de mês "‹ Ago 2026 ›" à direita
  *   2. Segmented "A pagar | A receber | Calendário"
- *   3. Três mini-cards: Previsto / Pago (income) / Falta pagar (warning)
- *   4. Listas agrupadas: "Vencidas · N" (card com borda danger), "Esta semana",
- *      "Mais adiante". Linha vencida ou parcial mostra ProgressBar e a ação
- *      "Dar baixa ›" / "Completar ›". Paga fica com título riscado e status income.
+ *   3. Três mini-cards: PREVISTO / PAGO (income) / FALTA PAGAR (warning)
+ *   4. Listas agrupadas: "VENCIDAS · N" (card com borda danger), "ESTA SEMANA",
+ *      "MAIS ADIANTE"
  *   5. BottomNav com Planejamento ativo (a barra é da AppTabs)
+ *
+ * A linha de conta prevista NÃO usa StatusChip: o design põe o status como
+ * texto na própria linha de meta, com o ponto e a cor semântica
+ * (COMPONENT-SPECS §ListRow, "meta 10.5 textSecondary — ou cor semântica
+ * quando é status"). A ação "Dar baixa ›" / "Completar ›" fica à direita,
+ * abaixo do valor, e só aparece em conta vencida ou parcial.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
@@ -24,21 +29,20 @@ import {
   minor,
   monthRange,
 } from '@ff/domain';
-import { Card, ListRow, SectionLabel } from '../../components/Card';
+import { Card, ListRow, SectionLabel, StatCard } from '../../components/Card';
 import { SegmentedControl } from '../../components/Chip';
+import { MonthPicker } from '../../components/MonthPicker';
 import { ProgressBar } from '../../components/ProgressBar';
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { StatusChip } from '../../components/StatusChip';
 import { EmptyState, RecoverableError, SkeletonList } from '../../components/states';
-import { Text } from '../../design-system/Text';
+import { Text, type TextTone } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { icons, iconSize } from '../../design-system/icons';
 import { ApiRequestError } from '../../services/api-client';
+import { dayMonth, dueLabel, monthLabel } from '../../services/dates';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
 import * as api from './planning-api';
-
-const MONTH_FORMAT = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' });
 
 type Tab = 'PAYABLE' | 'RECEIVABLE' | 'CALENDAR';
 
@@ -48,26 +52,56 @@ export type PlanningScreenProps = {
   readonly onOpenEntry: (entry: PlannedEntry) => void;
 };
 
-/** Chip de status da linha, com a copy final da especificação. */
-function statusFor(entry: PlannedEntry): React.JSX.Element {
-  if (entry.status === 'CANCELED') return <StatusChip status="estornado" />;
+/**
+ * Linha de status da conta prevista, com a copy final do screenshot.
+ *
+ * Os rótulos concordam com "conta": Aberta, Vencida, Paga, Cancelada. Parcial
+ * vem antes de vencida porque é assim que o design mostra a segunda linha do
+ * card VENCIDAS ("● Parcial · falta R$ 510,10 de R$ 910,10").
+ */
+function statusLine(entry: PlannedEntry): { readonly text: string; readonly tone: TextTone } {
+  const paga = entry.nature === 'PAYABLE' ? 'Paga' : 'Recebida';
+
+  if (entry.status === 'CANCELED') return { text: '● Cancelada', tone: 'secondary' };
+
   if (entry.status === 'SETTLED') {
-    return <StatusChip status={entry.nature === 'PAYABLE' ? 'pago' : 'recebido'} />;
+    const quando = entry.lastSettlementDate ?? entry.dueDate;
+    const onde = entry.lastSettlementAccountName ?? entry.expectedAccountName;
+    return {
+      text: `● ${paga} em ${dayMonth(quando)}${onde === null ? '' : ` · ${onde}`}`,
+      tone: 'income',
+    };
   }
-  if (entry.overdue) {
-    return (
-      <StatusChip
-        status="vencido"
-        detail={`há ${entry.overdueDays} ${entry.overdueDays === 1 ? 'dia' : 'dias'}`}
-      />
-    );
-  }
+
   if (entry.status === 'PARTIAL') {
-    return (
-      <StatusChip status="parcial" detail={`falta ${formatMoney(minor(entry.outstandingMinor))}`} />
-    );
+    return {
+      text: `● Parcial · falta ${formatMoney(minor(entry.outstandingMinor))} de ${formatMoney(minor(entry.originalAmountMinor))}`,
+      tone: 'warning',
+    };
   }
-  return <StatusChip status="aberto" />;
+
+  if (entry.overdue) {
+    const dias = `${entry.overdueDays} ${entry.overdueDays === 1 ? 'dia' : 'dias'}`;
+    const quem = entry.memberName === null ? '' : ` · ${entry.memberName}`;
+    return { text: `● Vencida há ${dias} · ${dayMonth(entry.dueDate)}${quem}`, tone: 'danger' };
+  }
+
+  // "recorrente" e "parcelamento" são exclusivos entre si (contrato do §3).
+  const origem =
+    entry.recurrenceRuleId !== null
+      ? ' · recorrente'
+      : entry.installmentGroupId !== null
+        ? ' · parcelamento'
+        : '';
+  return { text: `● Aberta · vence ${dueLabel(entry.dueDate)}${origem}`, tone: 'secondary' };
+}
+
+/** "Financiamento carro · 14/48" — a parcela vai no título, não na meta. */
+function rowTitle(entry: PlannedEntry): string {
+  if (entry.installmentTotal === null || entry.installmentNumber === null) return entry.description;
+  const numero = String(entry.installmentNumber).padStart(2, '0');
+  const total = String(entry.installmentTotal).padStart(2, '0');
+  return `${entry.description} · ${numero}/${total}`;
 }
 
 export function PlanningScreen({
@@ -115,7 +149,16 @@ export function PlanningScreen({
     void load();
   }, [load]);
 
-  /** Agrupa em Vencidas / Esta semana / Mais adiante, como no screenshot. */
+  /**
+   * Agrupa em Vencidas / Esta semana / Mais adiante, como no screenshot.
+   * As pagas continuam na lista, no grupo do vencimento delas — o design
+   * mostra "Plano de saúde" riscado dentro de MAIS ADIANTE.
+   *
+   * Conta já resolvida com vencimento anterior a hoje não é "vencida" nem
+   * está no futuro: o screenshot não cobre esse caso, e em vez de inventar
+   * uma quarta seção ela entra em "Esta semana", o grupo existente mais
+   * próximo (docs/21-DECISIONS D-047).
+   */
   const groups = useMemo(() => {
     const today =
       household === null
@@ -125,87 +168,82 @@ export function PlanningScreen({
     const list = entries ?? [];
     return {
       overdue: list.filter((entry) => entry.overdue),
-      thisWeek: list.filter(
-        (entry) => !entry.overdue && entry.dueDate >= today && entry.dueDate <= weekEnd,
-      ),
+      thisWeek: list.filter((entry) => !entry.overdue && entry.dueDate <= weekEnd),
       later: list.filter((entry) => !entry.overdue && entry.dueDate > weekEnd),
-      settled: list.filter((entry) => entry.status === 'SETTLED'),
     };
   }, [entries, household]);
 
-  const Prev = icons.anterior;
-  const Next = icons.proximo;
   const Calendar = icons.planejamento;
 
   const renderRow = (entry: PlannedEntry, index: number): React.JSX.Element => {
-    const isSettled = entry.status === 'SETTLED';
-    const showProgress = entry.status === 'PARTIAL';
+    const encerrada = entry.status === 'SETTLED' || entry.status === 'CANCELED';
+    const status = statusLine(entry);
+    // Só conta vencida ou parcial traz ação na linha (1d-planejamento.png).
+    const acao = !encerrada && (entry.overdue || entry.status === 'PARTIAL');
+
     return (
-      <View key={entry.id}>
-        <ListRow
-          first={index === 0}
-          testID={`previsto-${entry.id}`}
-          title={entry.description}
-          meta={`vence ${formatDate(isoDate(entry.dueDate))}${entry.installmentTotal === null ? '' : ` · parcela ${String(entry.installmentNumber).padStart(2, '0')}/${String(entry.installmentTotal).padStart(2, '0')}`}`}
-          onPress={() => onOpenEntry(entry)}
-          right={
-            <Text
-              variant="moneyRow"
-              tone={entry.nature === 'PAYABLE' ? 'expense' : 'income'}
-              style={isSettled ? styles.settled : undefined}
-            >
+      <ListRow
+        key={entry.id}
+        first={index === 0}
+        testID={`previsto-${entry.id}`}
+        title={rowTitle(entry)}
+        titleStyle={encerrada ? styles.settled : undefined}
+        meta={status.text}
+        metaTone={status.tone}
+        onPress={() => onOpenEntry(entry)}
+        below={
+          entry.status === 'PARTIAL' ? (
+            <ProgressBar
+              percent={entry.settledPercent}
+              tone="warning"
+              accessibilityLabel={`${entry.settledPercent}% pago`}
+            />
+          ) : undefined
+        }
+        right={
+          <View style={styles.rowRight}>
+            <Text variant="moneyRow" tone={entry.status === 'SETTLED' ? 'secondary' : 'primary'}>
               {formatMoney(minor(entry.originalAmountMinor))}
             </Text>
-          }
-        />
-        <View style={styles.rowExtras}>
-          {statusFor(entry)}
-          {showProgress ? (
-            <View style={styles.progressWrap}>
-              <ProgressBar
-                percent={entry.settledPercent}
-                tone="warning"
-                accessibilityLabel={`${entry.settledPercent}% pago`}
-              />
-              <Text variant="rowMeta" tone="secondary">
-                {`${entry.settledPercent}% pago · falta ${formatMoney(minor(entry.outstandingMinor))}`}
-              </Text>
-            </View>
-          ) : null}
-          {isSettled || entry.status === 'CANCELED' ? null : (
-            <Pressable
-              testID={`baixa-${entry.id}`}
-              accessibilityRole="button"
-              accessibilityLabel={entry.status === 'PARTIAL' ? 'Completar' : 'Dar baixa'}
-              onPress={() => onSettle(entry)}
-              hitSlop={8}
-            >
-              <Text variant="rowTitle" tone="brand">
-                {entry.status === 'PARTIAL' ? 'Completar ›' : 'Dar baixa ›'}
-              </Text>
-            </Pressable>
-          )}
-        </View>
-      </View>
+            {acao ? (
+              <Pressable
+                testID={`baixa-${entry.id}`}
+                accessibilityRole="button"
+                accessibilityLabel={entry.status === 'PARTIAL' ? 'Completar' : 'Dar baixa'}
+                onPress={() => onSettle(entry)}
+                hitSlop={8}
+              >
+                <Text variant="rowMeta" tone="brand">
+                  {entry.status === 'PARTIAL' ? 'Completar ›' : 'Dar baixa ›'}
+                </Text>
+              </Pressable>
+            ) : null}
+          </View>
+        }
+      />
     );
   };
+
+  const grupo = (titulo: string, itens: readonly PlannedEntry[], testID: string, danger = false) =>
+    itens.length === 0 ? null : (
+      <View style={{ marginTop: spacing.md }}>
+        <SectionLabel tone={danger ? 'danger' : 'secondary'}>{titulo}</SectionLabel>
+        <Card padded={false} tone={danger ? 'danger' : 'default'} testID={testID}>
+          {itens.map(renderRow)}
+        </Card>
+      </View>
+    );
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
       <ScreenHeader
         title="Planejamento"
         right={
-          <Pressable
-            testID="nova-conta-prevista"
-            accessibilityRole="button"
-            accessibilityLabel="Nova conta prevista"
-            hitSlop={10}
-            onPress={() => onNewEntry(nature)}
-          >
-            <Text variant="rowTitle" tone="brand">
-              + Nova
-            </Text>
-          </Pressable>
+          <MonthPicker
+            label={monthLabel(range.start)}
+            onPrevious={() => setMonthAnchor((current) => addMonths(current, -1))}
+            onNext={() => setMonthAnchor((current) => addMonths(current, 1))}
+          />
         }
       />
 
@@ -224,76 +262,47 @@ export function PlanningScreen({
           />
         }
       >
-        <View style={styles.monthRow}>
-          <Pressable
-            testID="mes-anterior"
-            accessibilityRole="button"
-            accessibilityLabel="Mês anterior"
-            hitSlop={10}
-            onPress={() => setMonthAnchor((current) => addMonths(current, -1))}
-          >
-            <Prev size={iconSize.row} color={colors.textSecondary} />
-          </Pressable>
-          <Text variant="section">
-            {MONTH_FORMAT.format(new Date(`${range.start}T12:00:00Z`)).replace('.', '')}
-          </Text>
-          <Pressable
-            testID="mes-proximo"
-            accessibilityRole="button"
-            accessibilityLabel="Próximo mês"
-            hitSlop={10}
-            onPress={() => setMonthAnchor((current) => addMonths(current, 1))}
-          >
-            <Next size={iconSize.row} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-
-        <View style={{ marginTop: spacing.md }}>
-          <SegmentedControl
-            testID="segmento-planejamento"
-            options={[
-              { value: 'PAYABLE', label: 'A pagar' },
-              { value: 'RECEIVABLE', label: 'A receber' },
-              { value: 'CALENDAR', label: 'Calendário' },
-            ]}
-            value={tab}
-            onChange={setTab}
-          />
-        </View>
+        <SegmentedControl
+          testID="segmento-planejamento"
+          options={[
+            { value: 'PAYABLE', label: 'A pagar' },
+            { value: 'RECEIVABLE', label: 'A receber' },
+            { value: 'CALENDAR', label: 'Calendário' },
+          ]}
+          value={tab}
+          onChange={setTab}
+        />
 
         {summary === null ? null : (
           <View style={[styles.miniCards, { marginTop: spacing.md }]}>
-            <Card style={styles.miniCard}>
-              <Text variant="rowMeta" tone="secondary">
-                Previsto
-              </Text>
-              <Text variant="moneyRow">{formatMoney(minor(summary.plannedMinor))}</Text>
-            </Card>
-            <Card style={styles.miniCard}>
-              <Text variant="rowMeta" tone="secondary">
-                {nature === 'PAYABLE' ? 'Pago' : 'Recebido'}
-              </Text>
-              <Text variant="moneyRow" tone="income">
-                {formatMoney(minor(summary.settledMinor))}
-              </Text>
-            </Card>
-            <Card style={styles.miniCard}>
-              <Text variant="rowMeta" tone="secondary">
-                {nature === 'PAYABLE' ? 'Falta pagar' : 'Falta receber'}
-              </Text>
-              <Text variant="moneyRow" tone="warning">
-                {formatMoney(minor(summary.outstandingMinor))}
-              </Text>
-            </Card>
+            <StatCard
+              testID="kpi-previsto"
+              label="Previsto"
+              value={formatMoney(minor(summary.plannedMinor))}
+            />
+            <StatCard
+              testID="kpi-pago"
+              label={nature === 'PAYABLE' ? 'Pago' : 'Recebido'}
+              value={formatMoney(minor(summary.settledMinor))}
+              tone="income"
+              labelTone="income"
+            />
+            <StatCard
+              testID="kpi-falta"
+              label={nature === 'PAYABLE' ? 'Falta pagar' : 'Falta receber'}
+              value={formatMoney(minor(summary.outstandingMinor))}
+              tone="warning"
+              labelTone="warning"
+            />
           </View>
         )}
 
         {tab === 'CALENDAR' ? (
-          <View style={{ marginTop: spacing.xl }}>
+          <View style={{ marginTop: spacing.md }}>
             <CalendarMonth entries={entries ?? []} start={range.start} onSelect={onOpenEntry} />
           </View>
         ) : error !== null ? (
-          <View style={{ marginTop: spacing.lg }}>
+          <View style={{ marginTop: spacing.md }}>
             <RecoverableError
               message={error}
               onRetry={() => void load()}
@@ -301,7 +310,7 @@ export function PlanningScreen({
             />
           </View>
         ) : entries === null ? (
-          <View style={{ marginTop: spacing.lg }}>
+          <View style={{ marginTop: spacing.md }}>
             <SkeletonList rows={5} />
           </View>
         ) : entries.length === 0 ? (
@@ -314,32 +323,9 @@ export function PlanningScreen({
           />
         ) : (
           <>
-            {groups.overdue.length === 0 ? null : (
-              <View style={{ marginTop: spacing.xl }}>
-                <SectionLabel>{`VENCIDAS · ${groups.overdue.length}`}</SectionLabel>
-                <Card padded={false} tone="danger" testID="card-vencidas">
-                  {groups.overdue.map(renderRow)}
-                </Card>
-              </View>
-            )}
-
-            {groups.thisWeek.length === 0 ? null : (
-              <View style={{ marginTop: spacing.xl }}>
-                <SectionLabel>ESTA SEMANA</SectionLabel>
-                <Card padded={false} testID="card-semana">
-                  {groups.thisWeek.map(renderRow)}
-                </Card>
-              </View>
-            )}
-
-            {groups.later.length === 0 ? null : (
-              <View style={{ marginTop: spacing.xl }}>
-                <SectionLabel>MAIS ADIANTE</SectionLabel>
-                <Card padded={false} testID="card-adiante">
-                  {groups.later.map(renderRow)}
-                </Card>
-              </View>
-            )}
+            {grupo(`Vencidas · ${groups.overdue.length}`, groups.overdue, 'card-vencidas', true)}
+            {grupo('Esta semana', groups.thisWeek, 'card-semana')}
+            {grupo('Mais adiante', groups.later, 'card-adiante')}
           </>
         )}
       </ScrollView>
@@ -407,21 +393,7 @@ function CalendarMonth({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingTop: 4 },
-  monthRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'center',
-  },
   miniCards: { flexDirection: 'row', gap: 8 },
-  miniCard: { flex: 1, gap: 2 },
-  rowExtras: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-    paddingBottom: 10,
-  },
-  progressWrap: { flex: 1, gap: 3, minWidth: 140 },
+  rowRight: { alignItems: 'flex-end', gap: 2 },
   settled: { textDecorationLine: 'line-through' },
 });

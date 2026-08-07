@@ -6,15 +6,22 @@
  */
 
 import React from 'react';
-import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
+import { Pressable, StyleSheet, View, type TextStyle, type ViewStyle } from 'react-native';
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
 import { icons, iconSize } from '../design-system/icons';
 
-export function SectionLabel({ children }: { readonly children: string }): React.JSX.Element {
+export function SectionLabel({
+  children,
+  tone = 'secondary',
+}: {
+  readonly children: string;
+  /** "VENCIDAS · 2" da 1d é danger; os demais rótulos são secundários. */
+  readonly tone?: React.ComponentProps<typeof Text>['tone'];
+}): React.JSX.Element {
   const { spacing } = useTheme();
   return (
-    <Text variant="sectionCaps" tone="secondary" style={{ marginBottom: spacing.sm }}>
+    <Text variant="sectionCaps" tone={tone} style={{ marginBottom: spacing.sm }}>
       {children}
     </Text>
   );
@@ -61,11 +68,19 @@ export function Card({
 
 export type ListRowProps = {
   readonly title: string;
+  /** Conta paga ou cancelada leva line-through no TÍTULO (1d, 1g). */
+  readonly titleStyle?: TextStyle | undefined;
   readonly meta?: string | undefined;
   /** Cor semântica do meta quando ele carrega status. */
   readonly metaTone?: React.ComponentProps<typeof Text>['tone'];
   readonly left?: React.ReactNode | undefined;
   readonly right?: React.ReactNode | undefined;
+  /**
+   * Bloco extra abaixo do meta, dentro da coluna de texto — é a ProgressBar da
+   * baixa parcial na 1d, que ocupa a largura do texto e não a da linha inteira
+   * (medido em 1d-planejamento.png: 250 de 324).
+   */
+  readonly below?: React.ReactNode | undefined;
   readonly onPress?: (() => void) | undefined;
   readonly showChevron?: boolean | undefined;
   readonly first?: boolean | undefined;
@@ -75,10 +90,12 @@ export type ListRowProps = {
 
 export function ListRow({
   title,
+  titleStyle,
   meta,
   metaTone = 'secondary',
   left,
   right,
+  below,
   onPress,
   showChevron = false,
   first = false,
@@ -93,12 +110,15 @@ export function ListRow({
       {left === undefined ? null : <View style={styles.left}>{left}</View>}
 
       <View style={styles.texts}>
-        <Text variant="rowTitle">{title}</Text>
+        <Text variant="rowTitle" style={titleStyle}>
+          {title}
+        </Text>
         {meta === undefined ? null : (
           <Text variant="rowMeta" tone={metaTone}>
             {meta}
           </Text>
         )}
+        {below}
       </View>
 
       {right}
@@ -120,6 +140,53 @@ export function ListRow({
     >
       {content}
     </Pressable>
+  );
+}
+
+export type StatCardProps = {
+  readonly label: string;
+  readonly value: string;
+  /** Na 1d o rótulo tem a mesma cor do valor: PAGO income, FALTA PAGAR warning. */
+  readonly tone?: React.ComponentProps<typeof Text>['tone'];
+  readonly labelTone?: React.ComponentProps<typeof Text>['tone'];
+  readonly testID?: string | undefined;
+};
+
+/**
+ * Mini-card de indicador — os três "PREVISTO / PAGO / FALTA PAGAR" da 1d.
+ *
+ * Geometria do Field (COMPONENT-SPECS §Field: raio 14, borda 1, padding 9×14),
+ * com rótulo `label` em caixa alta e valor `moneyRow`. Fecha nos 55 de altura
+ * medidos em 1d-planejamento.png — o Card comum, de padding 14×16, dava 65.
+ */
+export function StatCard({
+  label,
+  value,
+  tone = 'primary',
+  labelTone = 'secondary',
+  testID,
+}: StatCardProps): React.JSX.Element {
+  const { colors, radius } = useTheme();
+
+  return (
+    <View
+      testID={testID}
+      style={[
+        styles.statCard,
+        {
+          backgroundColor: colors.surfaceElevated,
+          borderColor: colors.border,
+          borderRadius: radius.lg,
+        },
+      ]}
+    >
+      <Text variant="label" tone={labelTone}>
+        {label}
+      </Text>
+      <Text variant="moneyRow" tone={tone}>
+        {value}
+      </Text>
+    </View>
   );
 }
 
@@ -150,6 +217,13 @@ const styles = StyleSheet.create({
   left: { justifyContent: 'center' },
   texts: { flex: 1, gap: 2 },
   pressed: { opacity: 0.7 },
+  statCard: {
+    borderWidth: 1,
+    flex: 1,
+    gap: 2,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
   iconBadge: {
     alignItems: 'center',
     height: 32,

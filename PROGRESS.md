@@ -23,7 +23,14 @@ as medidas do design e do app diretamente comparáveis.
 
 Para ter o que comparar, `npm run seed:demo --workspace @ff/api` cria a Família Souza
 (Ana, Bruno, Caio) com as contas, o cartão e os lançamentos de agosto de 2026 dos
-screenshots.
+screenshots. O seed é calibrado pelo `1b-inicio.png`; estados que só a 1d mostra
+(baixa parcial, conta paga, recorrente, parcelada) são criados à parte para a
+captura e desfeitos com um novo `seed:demo` — os dois screenshots do design não
+saem do mesmo conjunto de dados.
+
+Os testes de integração rodam em `family_finance_test`, criado por
+`npm run db:test:prepare --workspace @ff/api`. Antes disso, o TRUNCATE de cada
+arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
 
 ### Telas aprovadas no gate
 
@@ -36,32 +43,41 @@ screenshots.
   `dark`. Varredura de 5 colunas não encontrou nenhum hex do `light` — o único
   #FFFFFF está em y=6–8dp, que é o relógio do Android, fora do app.
 
-### Telas REPROVADAS no gate
+- **1d · Planejamento (claro)** — bate com o screenshot depois da correção das
+  sete divergências abaixo. Medido: pílula de mês 34 (design 34), trilho do
+  segmented 39 (39), mini-cards 55 (55), linha simples 56 (56), linha parcial
+  64 (66), barra de progresso 247 de largura (250). Os quatro estados da tela
+  foram exercitados no emulador — aberta, vencida, parcial e paga, mais
+  "recorrente" e "parcelamento".
 
-**1d · Planejamento** — comparada com `1d-planejamento.png`. Sete divergências,
-três delas estruturais. NÃO corrigidas ainda:
+### Divergências da 1d, corrigidas
 
-1. **Falta o segmented "A pagar | A receber | Calendário"** no topo. O app não
-   tem essa navegação — só lista contas a pagar. "A receber" e "Calendário" não
-   existem como visão.
-2. **Falta o seletor de mês "‹ Ago 2026 ›"** no cabeçalho; o app põe "+ Nova"
-   nesse lugar. O design tem os dois: título à esquerda, mês à direita.
-3. **Linhas pagas não aparecem.** O design mostra "Plano de saúde" com
-   line-through e "● Paga em 04/08 · Conta Corrente"; o app filtra pagas da
-   lista.
-4. **Baixa parcial não mostra progresso na lista.** O design traz
-   "● Parcial · falta R$ 510,10 de R$ 910,10" com barra e ação "Completar ›";
-   o app mostra só o status.
-5. **Status como chip, onde o design usa texto inline.** O app renderiza uma
-   pílula com fundo; o design põe ponto + texto direto na linha de meta, e a
-   ação ("Dar baixa ›" / "Completar ›") vai à direita, abaixo do valor.
-6. **Copy: "Vencido" onde o design escreve "Vencida"** — concorda com "conta".
-   Verificar o mesmo nas demais telas.
-7. **Rótulos dos três KPI em caixa normal**; o design usa caixa alta
-   (PREVISTO · PAGO · FALTA PAGAR). As cores já batem.
+1. **Seletor de mês fora do cabeçalho.** O app punha "+ Nova" ali e o seletor
+   centralizado no conteúdo. O design tem título à esquerda e "‹ Ago 2026 ›" à
+   direita — e não tem botão "+ Nova" (criar é o "+" central da nav).
+2. **Setas do seletor de mês em `chevron-left`/`chevron-right`.** O design usa
+   os glifos ‹ › (3–4dp contra ~10 do ícone). Virou o componente `MonthPicker`,
+   agora compartilhado com a 1b — que tinha a mesma divergência, não vista no
+   gate anterior.
+3. **Linha paga apresentada errada.** O app riscava o VALOR e mostrava um chip;
+   o design risca o TÍTULO, escreve "● Paga em 04/08 · Conta Corrente" em income
+   e deixa o valor em textSecondary. Exigiu dois campos novos no contrato
+   (`lastSettlementDate`, `lastSettlementAccountName`), com teste.
+4. **Baixa parcial sem barra na lista.** Agora traz "● Parcial · falta R$ X de
+   R$ Y", a ProgressBar na largura da coluna de texto e "Completar ›".
+5. **Status como chip, onde o design usa texto inline** com ponto e cor
+   semântica na linha de meta, e a ação à direita abaixo do valor
+   (COMPONENT-SPECS §ListRow).
+6. **Copy "Vencido"/"Aberto"** onde o design concorda com "conta": Vencida,
+   Aberta, Paga, Parcial, Cancelada.
+7. **Rótulos dos KPI em caixa normal e todos em textSecondary.** O design usa
+   caixa alta e colore o rótulo junto com o valor (PAGO income, FALTA PAGAR
+   warning). Os mini-cards também tinham a geometria do Card comum (65 de
+   altura) em vez da do Field (55).
 
-Também difere a data na meta: o app escreve `vence 08/08/2026`, o design
-`vence sáb, 08/08` — mesmo formato já corrigido na 1b, ainda não propagado aqui.
+Além dessas: a data da meta passou a "vence sáb, 08/08" (formato já aprovado na
+1b), o trilho do segmented caiu de 44 para 39 e `settledPercentage` passou a
+arredondar — 400,00 de 910,10 é "44% pago" no design, e truncando dava 43.
 
 ### Telas ainda sem gate
 
@@ -108,15 +124,14 @@ escuro de todas. O ferramental está pronto e o custo por tela é baixo.
     Consolidado = Σ contas (não desconta cartão), Disponível = consolidado − cartões.
     O app fazia o inverso. Corrigido no serviço, com teste.
 
-### Divergências abertas na 1b
+### Terceira rodada, no gate da 1d
 
-1. **Ícone das linhas por natureza (↓/↑)**, enquanto o design usa ícone por categoria.
-   `CLARIFICATIONS-01` item 3 já entregou o mapa (categoria → ícone lucide → cor →
-   fundo *Soft*), mas o contrato do dashboard não carrega a categoria da linha —
-   implementar exige mudar o contrato. É a próxima tarefa da 1b.
-2. **Fatura do cartão não aparece em "Próximos compromissos"**. O formato exato veio
-   em `CLARIFICATIONS-01` item 4; falta o serviço incluir a fatura entre os
-   compromissos.
+16. **Seletor de mês com os chevrons do set de ícones** também na 1b. O design usa os
+    glifos ‹ ›; virou o componente `MonthPicker`, usado pelas duas telas. A pílula
+    também esticava até a altura do segmented em vez dos 34 do design.
+17. **Trilho do segmented com 44 de altura** contra 39 medidos na 1d (35 na 1b — os
+    dois screenshots divergem, e o COMPONENT-SPECS não dá a altura). Ficou 39, com
+    `hitSlop` mantendo os 44 de toque.
 
 ### Divergências anteriores, reavaliadas
 
@@ -127,12 +142,9 @@ escuro de todas. O ferramental está pronto e o custo por tela é baixo.
   verbatim e inegociável (CLAUDE.md item 1) — fica 54.
 - 3a, "Administradora" no screenshot: segue "Administrador"; o modelo não guarda gênero.
 
-### Telas ainda sem gate
-
-1d, 1e, 1f, 1g, 2a, 2b, 2c, 2d, 2e, 3a, 3b, 3d, 4a–4d, 6b, mais as telas sem
-screenshot. Nenhuma delas pode ser marcada como concluída. As correções 1, 3, 8, 9 e 12
-são em componentes compartilhados, então provavelmente melhoraram várias dessas telas —
-mas isso é hipótese até medir.
+Muitas dessas correções são em componentes compartilhados (`Field`, `Avatar`, `Banner`,
+`ListRow`, `BottomNav`, `SegmentedControl`, `MonthPicker`), então provavelmente
+melhoraram telas ainda não medidas — mas isso é hipótese até o gate de cada uma.
 
 ## Concluído
 

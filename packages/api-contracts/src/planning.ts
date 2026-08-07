@@ -69,6 +69,12 @@ export const plannedEntrySchema = z.object({
   notes: z.string().nullable(),
   reminderDaysBefore: z.int().nullable(),
   attachmentCount: z.int(),
+  /**
+   * Última baixa NÃO estornada — é o "● Paga em 04/08 · Conta Corrente" da 1d.
+   * Derivados de `settlements`, nunca persistidos na conta prevista.
+   */
+  lastSettlementDate: z.string().nullable(),
+  lastSettlementAccountName: z.string().nullable(),
   version: z.int(),
 });
 export type PlannedEntry = z.infer<typeof plannedEntrySchema>;

@@ -214,6 +214,49 @@ describe('baixa completa após parcial', () => {
     expect(await balance(base)).toBe(1_000_000 - 100_000);
   });
 
+  // A linha "● Paga em 04/08 · Conta Corrente" da 1d sai daqui: sem estes dois
+  // campos a tela não tem como escrever quando e por onde a conta foi paga.
+  it('expõe a data e a conta da última baixa válida', async () => {
+    const base = await setup();
+    const entry = await payable(base);
+
+    const first = await settle(base, entry.id, {
+      principalAmountMinor: 44_000,
+      accountId: base.accountId,
+      settledAt: '2026-08-08',
+      idempotencyKey: key('ultima-parcial'),
+      expectedVersion: entry.version,
+    });
+    expect(first.json().plannedEntry.lastSettlementDate).toBe('2026-08-08');
+    expect(first.json().plannedEntry.lastSettlementAccountName).toBe('Conta Corrente');
+
+    const second = await settle(base, entry.id, {
+      principalAmountMinor: 56_000,
+      accountId: base.accountId,
+      settledAt: '2026-08-20',
+      idempotencyKey: key('ultima-total'),
+      expectedVersion: first.json().plannedEntry.version,
+    });
+    // A mais recente vence: a tela mostra a baixa que quitou a conta.
+    expect(second.json().plannedEntry.lastSettlementDate).toBe('2026-08-20');
+
+    // Estornada não conta: volta a valer a baixa anterior.
+    const reverse = await ctx.app.inject({
+      method: 'POST',
+      url: `/households/${base.householdId}/settlements/${second.json().settlement.id}/reverse`,
+      headers: headers(base.owner),
+      payload: { reason: 'Pagamento não compensou', idempotencyKey: key('estorno-ultima') },
+    });
+    expect(reverse.statusCode).toBe(201);
+
+    const after = await ctx.app.inject({
+      method: 'GET',
+      url: `/households/${base.householdId}/planned-entries/${entry.id}`,
+      headers: headers(base.owner),
+    });
+    expect(after.json().lastSettlementDate).toBe('2026-08-08');
+  });
+
   it('não aceita nova baixa depois de quitada', async () => {
     const base = await setup();
     const entry = await payable(base);

@@ -14,6 +14,7 @@
     "migrate:up": "node scripts/migrate.mjs up",
     "migrate:down": "node scripts/migrate.mjs down",
     "migrate:reset": "node scripts/migrate.mjs reset",
+    "db:test:prepare": "node scripts/create-test-db.mjs",
     "seed:demo": "node scripts/seed-demo.mjs"
   },
   "dependencies": {

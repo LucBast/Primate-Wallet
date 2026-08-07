@@ -18,6 +18,7 @@ import {
   generateOccurrences,
   isoDate,
   minor,
+  settledPercentage,
   splitInstallments,
   type IsoDate,
 } from '@ff/domain';
@@ -60,6 +61,8 @@ type EntryRow = {
   notes: string | null;
   reminder_days_before: number | null;
   attachment_count: string | number;
+  last_settlement_date: Date | null;
+  last_settlement_account_name: string | null;
   version: number;
 };
 
@@ -75,6 +78,7 @@ const ENTRY_SELECT = `
   (SELECT count(*) FROM attachments att
     WHERE att.entity_type = 'planned_entry' AND att.entity_id = e.id AND att.deleted_at IS NULL)
     AS attachment_count,
+  ls.settled_at AS last_settlement_date, ls.account_name AS last_settlement_account_name,
   e.version
 `;
 
@@ -84,6 +88,15 @@ const ENTRY_FROM = `
   LEFT JOIN household_members m ON m.id = e.member_id
   LEFT JOIN categories c ON c.id = e.category_id
   LEFT JOIN counterparties cp ON cp.id = e.counterparty_id
+  -- Baixa estornada não conta: some da linha de status junto com o valor.
+  LEFT JOIN LATERAL (
+    SELECT s.settled_at, sa.name AS account_name
+      FROM settlements s
+      LEFT JOIN accounts sa ON sa.id = s.account_id
+     WHERE s.planned_entry_id = e.id AND s.reversed_at IS NULL
+     ORDER BY s.settled_at DESC, s.created_at DESC
+     LIMIT 1
+  ) ls ON true
 `;
 
 function toEntry(row: EntryRow, today: IsoDate): PlannedEntry {
@@ -95,8 +108,12 @@ function toEntry(row: EntryRow, today: IsoDate): PlannedEntry {
     ? (Date.parse(`${today}T00:00:00Z`) - Date.parse(`${dueDate}T00:00:00Z`)) / 86_400_000
     : 0;
   const settled = Number(row.settled_minor);
-  const settledPercent =
-    row.original_amount_minor <= 0 ? 100 : Math.floor((settled * 100) / row.original_amount_minor);
+  // `settled_minor` já é original − saldo em aberto, ou seja, juros, multa e
+  // desconto entram nele: a regra de arredondamento é a do domínio, uma só.
+  const settledPercent = settledPercentage({
+    originalAmountMinor: minor(row.original_amount_minor),
+    settledMinor: minor(settled),
+  });
 
   return {
     id: row.id,
@@ -126,6 +143,11 @@ function toEntry(row: EntryRow, today: IsoDate): PlannedEntry {
     notes: row.notes,
     reminderDaysBefore: row.reminder_days_before,
     attachmentCount: Number(row.attachment_count),
+    lastSettlementDate:
+      row.last_settlement_date === null
+        ? null
+        : row.last_settlement_date.toISOString().slice(0, 10),
+    lastSettlementAccountName: row.last_settlement_account_name,
     version: row.version,
   };
 }

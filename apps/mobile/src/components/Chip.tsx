@@ -143,6 +143,8 @@ export function SegmentedControl<T extends string>({
             accessibilityState={{ selected: active }}
             accessibilityLabel={option.label}
             onPress={() => onChange(option.value)}
+            // O trilho fecha em 39; o hitSlop devolve os 44 de toque mínimo.
+            hitSlop={{ bottom: 6, top: 6 }}
             style={[
               styles.segment,
               active && {
@@ -183,7 +185,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     flex: 1,
     justifyContent: 'center',
-    minHeight: 38,
+    // 33 + 3 + 3 = os 39 do trilho medido em 1d-planejamento.png. O
+    // COMPONENT-SPECS não dá a altura; os 38 anteriores fechavam em 44.
+    minHeight: 33,
   },
   segmentLabel: { fontSize: 12.5 },
 });

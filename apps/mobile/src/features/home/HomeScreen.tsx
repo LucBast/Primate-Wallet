@@ -22,6 +22,7 @@ import { Avatar } from '../../components/Avatar';
 import { Banner } from '../../components/Banner';
 import { Card, IconBadge, ListRow } from '../../components/Card';
 import { SegmentedControl } from '../../components/Chip';
+import { MonthPicker } from '../../components/MonthPicker';
 import { ProgressBar } from '../../components/ProgressBar';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { EmptyState, RecoverableError, SkeletonList } from '../../components/states';
@@ -30,35 +31,10 @@ import { useTheme } from '../../design-system/theme';
 import { icons, iconSize } from '../../design-system/icons';
 import { categoryVisual } from '../../design-system/category-icons';
 import { ApiRequestError } from '../../services/api-client';
+import { dueLabel, longMonthLabel, monthLabel } from '../../services/dates';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold, useHouseholdStore } from '../household/household-store';
 import * as api from './report-api';
-
-/** Seletor de mês do header: "Ago 2026" (SCREEN-SPECS §1b, "‹ Ago 2026 ›"). */
-const MONTH_SHORT = new Intl.DateTimeFormat('pt-BR', { month: 'short', timeZone: 'UTC' });
-/** Rótulo à direita de "Previsto × realizado": "agosto", como no screenshot. */
-const MONTH_LONG = new Intl.DateTimeFormat('pt-BR', { month: 'long', timeZone: 'UTC' });
-/** Meta das linhas de compromisso: "sáb, 08/08" (screenshot 1b-inicio.png). */
-const DUE_FORMAT = new Intl.DateTimeFormat('pt-BR', {
-  weekday: 'short',
-  day: '2-digit',
-  month: '2-digit',
-  timeZone: 'UTC',
-});
-
-function monthDate(iso: string): Date {
-  return new Date(`${iso}T12:00:00Z`);
-}
-
-function monthChip(iso: string): string {
-  const short = MONTH_SHORT.format(monthDate(iso)).replace('.', '');
-  return `${short.charAt(0).toUpperCase()}${short.slice(1)} ${monthDate(iso).getUTCFullYear()}`;
-}
-
-function dueLabel(iso: string): string {
-  // pt-BR devolve "sáb., 08/08"; o screenshot não tem o ponto do dia da semana.
-  return DUE_FORMAT.format(monthDate(iso)).replace('.,', ',');
-}
 
 export type HomeScreenProps = {
   readonly onOpenPlanning: () => void;
@@ -112,8 +88,6 @@ export function HomeScreen({
   }, [load]);
 
   const Bell = icons.notificacao;
-  const Prev = icons.anterior;
-  const Next = icons.proximo;
 
   const firstName = (profile?.displayName ?? '').split(' ')[0] ?? '';
 
@@ -169,36 +143,12 @@ export function HomeScreen({
             />
           </View>
 
-          <View
-            style={[
-              styles.monthPicker,
-              {
-                backgroundColor: colors.surfaceElevated,
-                borderColor: colors.border,
-                borderRadius: radius.md,
-              },
-            ]}
-          >
-            <Pressable
-              testID="mes-anterior"
-              accessibilityRole="button"
-              accessibilityLabel="Mês anterior"
-              hitSlop={8}
-              onPress={() => setMonthAnchor((current) => addMonths(current, -1))}
-            >
-              <Prev size={iconSize.nav} color={colors.textSecondary} />
-            </Pressable>
-            <Text variant="chip">{monthChip(range.start)}</Text>
-            <Pressable
-              testID="mes-proximo"
-              accessibilityRole="button"
-              accessibilityLabel="Próximo mês"
-              hitSlop={8}
-              onPress={() => setMonthAnchor((current) => addMonths(current, 1))}
-            >
-              <Next size={iconSize.nav} color={colors.textSecondary} />
-            </Pressable>
-          </View>
+          <MonthPicker
+            label={monthLabel(range.start)}
+            onPrevious={() => setMonthAnchor((current) => addMonths(current, -1))}
+            onNext={() => setMonthAnchor((current) => addMonths(current, 1))}
+            style={styles.monthPicker}
+          />
         </View>
 
         {error !== null ? (
@@ -240,7 +190,7 @@ export function HomeScreen({
                 <View style={styles.cardHeader}>
                   <Text variant="rowTitle">Previsto × realizado</Text>
                   <Text variant="rowMeta" tone="secondary">
-                    {MONTH_LONG.format(monthDate(range.start))}
+                    {longMonthLabel(range.start)}
                   </Text>
                 </View>
 
@@ -450,15 +400,7 @@ const styles = StyleSheet.create({
   content: { paddingTop: 4 },
   controls: { flexDirection: 'row', gap: 8 },
   segment: { flex: 1.6 },
-  monthPicker: {
-    alignItems: 'center',
-    borderWidth: 1,
-    flex: 1,
-    flexDirection: 'row',
-    gap: 6,
-    justifyContent: 'center',
-    paddingHorizontal: 8,
-  },
+  monthPicker: { flex: 1 },
   balanceCard: { gap: 2, paddingHorizontal: 18, paddingVertical: 14 },
   cardHeader: {
     alignItems: 'center',

@@ -82,7 +82,13 @@ export function overdueDays(input: OverdueInput, familyToday: IsoDate): number {
   return (today - due) / millisPerDay;
 }
 
-/** Percentual pago (0–100) para a ProgressBar de baixa parcial. */
+/**
+ * Percentual pago (0–100) para a ProgressBar de baixa parcial.
+ *
+ * Arredonda, como o design: R$ 400,00 de R$ 910,10 é "44% pago" (telas 1d e
+ * 1e), não 43. Mas nunca devolve 100 com saldo em aberto — o número não pode
+ * sugerir conta quitada enquanto falta pagar.
+ */
 export function settledPercentage(input: OutstandingInput): number {
   const gross = add(
     input.originalAmountMinor,
@@ -92,9 +98,12 @@ export function settledPercentage(input: OutstandingInput): number {
   const payable = subtract(gross, input.discountMinor ?? ZERO);
   if (payable <= 0) return 100;
   const settled = input.settledMinor ?? ZERO;
+  if (settled >= payable) return 100;
   const ratio = (settled * 100) / payable;
-  const clamped = ratio < 0 ? 0 : ratio > 100 ? 100 : ratio;
-  return Math.floor(clamped);
+  // A regra que proíbe Math.round vale para dinheiro; isto é um percentual de
+  // exibição, e nenhum centavo é derivado dele.
+  // eslint-disable-next-line no-restricted-properties
+  return ratio <= 0 ? 0 : Math.min(99, Math.round(ratio));
 }
 
 /** Valor máximo aceito numa baixa — o saldo em aberto (docs/04 §7). */
