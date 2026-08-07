@@ -15,32 +15,52 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { KeyboardAvoidingView, Platform, ScrollView, StyleSheet, View } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { PlannedEntry, Settlement } from '@ff/api-contracts';
-import { formatDate, formatMoney, isoDate, minor } from '@ff/domain';
+import { familyToday, formatMoney, isoDate, minor } from '@ff/domain';
 import { Banner } from '../../components/Banner';
 import { Button } from '../../components/Button';
-import { Card, ListRow, SectionLabel } from '../../components/Card';
-import { ChoiceChip } from '../../components/Chip';
+import { Card, IconBadge, ListRow, SectionLabel } from '../../components/Card';
+import { DateField } from '../../components/DateField';
 import { Field } from '../../components/Field';
 import { MoneyInput } from '../../components/MoneyInput';
+import { OptionSheet } from '../../components/OptionSheet';
 import { ProgressBar } from '../../components/ProgressBar';
 import { ScreenHeader } from '../../components/ScreenHeader';
-import { StatusChip } from '../../components/StatusChip';
-import { Text } from '../../design-system/Text';
+import { SelectField } from '../../components/SelectField';
+import { Text, type TextTone } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
+import { icons, iconSize } from '../../design-system/icons';
 import { ApiRequestError } from '../../services/api-client';
+import { dayMonth } from '../../services/dates';
 import { newIdempotencyKey } from '../../services/idempotency';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
 import { useReferenceStore } from '../household/reference-store';
 import * as api from './settlement-api';
 
-/** Lê centavos de um campo de texto ("15,00" → 1500). */
+/** Lê centavos de um campo de texto ("R$ 15,00" → 1500). */
 function parseCents(text: string): number {
   const digits = text.replace(/\D/g, '');
   return digits === '' ? 0 : Number.parseInt(digits, 10);
+}
+
+/** "● Parcial" da linha "44% pago · status: ● Parcial" (1e). */
+function statusWord(entry: PlannedEntry): { readonly text: string; readonly tone: TextTone } {
+  if (entry.status === 'SETTLED') {
+    return { text: entry.nature === 'PAYABLE' ? '● Paga' : '● Recebida', tone: 'income' };
+  }
+  if (entry.status === 'PARTIAL') return { text: '● Parcial', tone: 'warning' };
+  if (entry.overdue) return { text: '● Vencida', tone: 'danger' };
+  return { text: '● Aberta', tone: 'secondary' };
 }
 
 export function SettlementScreen({
@@ -58,16 +78,22 @@ export function SettlementScreen({
   const household = useActiveHousehold();
   const { accounts } = useReferenceStore();
 
+  const today =
+    household === null
+      ? isoDate(new Date().toISOString().slice(0, 10))
+      : familyToday(household.timezone);
+
   const [entry, setEntry] = useState<PlannedEntry>(initial);
   const [history, setHistory] = useState<Settlement[]>([]);
   const [principalMinor, setPrincipalMinor] = useState(Math.max(0, initial.outstandingMinor));
-  const [interestText, setInterestText] = useState('');
-  const [penaltyText, setPenaltyText] = useState('');
-  const [discountText, setDiscountText] = useState('');
+  const [interestMinor, setInterestMinor] = useState(0);
+  const [penaltyMinor, setPenaltyMinor] = useState(0);
+  const [discountMinor, setDiscountMinor] = useState(0);
   const [accountId, setAccountId] = useState<string | null>(
     initial.expectedAccountId ?? accounts[0]?.id ?? null,
   );
-  const [settledAt, setSettledAt] = useState(() => new Date().toISOString().slice(0, 10));
+  const [accountSheet, setAccountSheet] = useState(false);
+  const [settledAt, setSettledAt] = useState<string>(today);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [idempotencyKey, setIdempotencyKey] = useState(() => newIdempotencyKey('baixa'));
@@ -87,17 +113,17 @@ export function SettlementScreen({
   }, [load]);
 
   const charges = useMemo(
-    () => ({
-      interest: parseCents(interestText),
-      penalty: parseCents(penaltyText),
-      discount: parseCents(discountText),
-    }),
-    [discountText, interestText, penaltyText],
+    () => ({ interest: interestMinor, penalty: penaltyMinor, discount: discountMinor }),
+    [discountMinor, interestMinor, penaltyMinor],
   );
 
   /** "Total que sai da conta": principal + juros + multa − desconto. */
   const netMinor = principalMinor + charges.interest + charges.penalty - charges.discount;
   const settlesFully = principalMinor >= entry.outstandingMinor;
+
+  /** Baixas que ainda valem — o "(1 baixa)" do card resumo. */
+  const validSettlements = history.filter((item) => item.reversedAt === null).length;
+  const selectedAccount = accounts.find((account) => account.id === accountId);
 
   const handleConfirm = useCallback(async () => {
     if (!accessToken || !household || accountId === null) return;
@@ -147,7 +173,9 @@ export function SettlementScreen({
     >
       <ScreenHeader
         title="Dar baixa"
-        subtitle={`${entry.description} · vence ${formatDate(isoDate(entry.dueDate))}`}
+        // "Mensalidade escola — Caio · conta a pagar" (1e-baixa-parcial.png):
+        // o contexto é a conta e a natureza dela, não a data de vencimento.
+        subtitle={`${entry.description} · conta a ${entry.nature === 'PAYABLE' ? 'pagar' : 'receber'}`}
         onBack={onBack}
         size="screen"
       />
@@ -168,7 +196,12 @@ export function SettlementScreen({
           </View>
           <View style={styles.row}>
             <Text variant="rowMeta" tone="secondary">
-              {entry.nature === 'PAYABLE' ? 'Já pago' : 'Já recebido'}
+              {/* "Já pago (1 baixa)" — o screenshot conta as baixas válidas. */}
+              {`${entry.nature === 'PAYABLE' ? 'Já pago' : 'Já recebido'}${
+                validSettlements === 0
+                  ? ''
+                  : ` (${validSettlements} ${validSettlements === 1 ? 'baixa' : 'baixas'})`
+              }`}
             </Text>
             <Text variant="moneyRow" tone="income">
               {formatMoney(minor(entry.settledMinor))}
@@ -190,24 +223,15 @@ export function SettlementScreen({
               height={8}
               accessibilityLabel={`${entry.settledPercent}% pago`}
             />
-            <View style={[styles.statusLine, { marginTop: spacing.sm }]}>
-              <Text variant="rowMeta" tone="secondary">
-                {`${entry.settledPercent}% pago · status:`}
+            {/* "44% pago · status: ● Parcial" numa linha só: o screenshot não
+                usa a pílula do StatusChip aqui, e sim texto com o ponto na cor
+                do estado. */}
+            <Text variant="rowMeta" tone="secondary" style={{ marginTop: spacing.sm }}>
+              {`${entry.settledPercent}% ${entry.nature === 'PAYABLE' ? 'pago' : 'recebido'} · status: `}
+              <Text variant="rowMeta" tone={statusWord(entry).tone}>
+                {statusWord(entry).text}
               </Text>
-              <StatusChip
-                status={
-                  entry.status === 'SETTLED'
-                    ? entry.nature === 'PAYABLE'
-                      ? 'pago'
-                      : 'recebido'
-                    : entry.status === 'PARTIAL'
-                      ? 'parcial'
-                      : entry.overdue
-                        ? 'vencido'
-                        : 'aberto'
-                }
-              />
-            </View>
+            </Text>
           </View>
         </Card>
 
@@ -223,121 +247,138 @@ export function SettlementScreen({
           />
         </View>
 
+        {/* Juros, multa e desconto são dinheiro: o screenshot mostra "R$ 6,20"
+            dentro do campo, não um texto solto. Digitar acrescenta centavos. */}
         <View style={[styles.chargeRow, { marginTop: spacing.md }]}>
           <View style={styles.charge}>
             <Field
               label="Juros"
               testID="campo-juros"
-              value={interestText}
-              onChangeText={setInterestText}
+              value={formatMoney(minor(interestMinor))}
+              onChangeText={(text) => setInterestMinor(parseCents(text))}
               keyboardType="number-pad"
-              placeholder="0,00"
             />
           </View>
           <View style={styles.charge}>
             <Field
               label="Multa"
               testID="campo-multa"
-              value={penaltyText}
-              onChangeText={setPenaltyText}
+              value={formatMoney(minor(penaltyMinor))}
+              onChangeText={(text) => setPenaltyMinor(parseCents(text))}
               keyboardType="number-pad"
-              placeholder="0,00"
             />
           </View>
           <View style={styles.charge}>
             <Field
               label="Desconto"
               testID="campo-desconto"
-              value={discountText}
-              onChangeText={setDiscountText}
+              value={formatMoney(minor(discountMinor))}
+              onChangeText={(text) => setDiscountMinor(parseCents(text))}
               keyboardType="number-pad"
-              placeholder="0,00"
             />
           </View>
         </View>
 
-        <View style={{ marginTop: spacing.xl }}>
-          <SectionLabel>CONTA USADA</SectionLabel>
-          <View style={styles.chips}>
-            {accounts.map((account) => (
-              <ChoiceChip
-                key={account.id}
-                testID={`conta-${account.id}`}
-                label={account.name}
-                selected={accountId === account.id}
-                onPress={() => setAccountId(account.id)}
-              />
-            ))}
+        {/* "CONTA USADA" e "DATA" são dois selects lado a lado (1e). */}
+        <View style={[styles.chargeRow, { marginTop: spacing.md }]}>
+          <View style={styles.accountField}>
+            <SelectField
+              testID="campo-conta-usada"
+              label="Conta usada"
+              value={
+                selectedAccount === undefined
+                  ? 'Escolher'
+                  : [selectedAccount.name, selectedAccount.primaryMemberName]
+                      .filter((part): part is string => Boolean(part))
+                      .join(' · ')
+              }
+              placeholder={selectedAccount === undefined}
+              onPress={() => setAccountSheet(true)}
+            />
+          </View>
+          <View style={styles.charge}>
+            <DateField
+              testID="campo-data"
+              label="Data"
+              value={settledAt}
+              onChange={setSettledAt}
+              today={today}
+            />
           </View>
         </View>
 
         <View style={{ marginTop: spacing.md }}>
-          <Field
-            label="Data"
-            testID="campo-data"
-            value={settledAt}
-            onChangeText={setSettledAt}
-            autoCapitalize="none"
-            placeholder="2026-08-08"
-          />
-        </View>
-
-        <View style={{ marginTop: spacing.md }}>
           <Banner
-            kind="info"
+            kind="brand"
             testID="banner-total"
-            message={`Total que sai da conta: ${formatMoney(minor(netMinor))} — ${formatMoney(minor(principalMinor))} de principal${charges.interest > 0 ? ` + ${formatMoney(minor(charges.interest))} de juros` : ''}${charges.penalty > 0 ? ` + ${formatMoney(minor(charges.penalty))} de multa` : ''}${charges.discount > 0 ? ` − ${formatMoney(minor(charges.discount))} de desconto` : ''}.`}
+            message="Total que sai da conta"
+            actionLabel={formatMoney(minor(netMinor))}
           />
         </View>
 
         {history.length === 0 ? null : (
           <View style={{ marginTop: spacing.xl }}>
-            <SectionLabel>{`HISTÓRICO DE BAIXAS · ${history.length}`}</SectionLabel>
+            <SectionLabel>Histórico de baixas</SectionLabel>
             <Card padded={false} testID="card-historico">
-              {history.map((settlement, index) => (
-                <ListRow
-                  key={settlement.id}
-                  first={index === 0}
-                  testID={`baixa-${settlement.id}`}
-                  title={`${settlement.reversedAt === null ? '✓' : '↺'} ${formatMoney(minor(settlement.netAmountMinor))}`}
-                  meta={[
-                    settlement.accountName,
-                    formatDate(isoDate(settlement.settledAt)),
-                    settlement.createdByName,
-                    settlement.reversedAt === null
-                      ? null
-                      : `estornada · ${settlement.reversalReason ?? ''}`,
-                  ]
-                    .filter((part): part is string => Boolean(part))
-                    .join(' · ')}
-                  metaTone={settlement.reversedAt === null ? 'secondary' : 'danger'}
-                  right={
-                    settlement.reversedAt === null ? (
-                      <Button
-                        testID={`estornar-${settlement.id}`}
-                        label="Estornar"
-                        variant="destructive"
-                        size="sm"
-                        style={styles.reverseButton}
-                        onPress={async () => {
-                          if (!accessToken || !household) return;
-                          const result = await api.reverseSettlement(
-                            accessToken,
-                            household.id,
-                            settlement.id,
-                            {
-                              reason: 'Estorno solicitado pelo usuário',
-                              idempotencyKey: newIdempotencyKey('estorno-baixa'),
-                            },
-                          );
-                          setEntry(result.plannedEntry);
-                          await load();
-                        }}
-                      />
-                    ) : undefined
-                  }
-                />
-              ))}
+              {history.map((settlement, index) => {
+                const estornada = settlement.reversedAt !== null;
+                const Marca = estornada ? icons.estorno : icons.confirmado;
+                return (
+                  <ListRow
+                    key={settlement.id}
+                    first={index === 0}
+                    testID={`baixa-${settlement.id}`}
+                    left={
+                      <IconBadge background={estornada ? colors.chipNeutral : colors.incomeSoft}>
+                        <Marca
+                          size={iconSize.row}
+                          color={estornada ? colors.textSecondary : colors.income}
+                        />
+                      </IconBadge>
+                    }
+                    title={`${formatMoney(minor(settlement.netAmountMinor))}${
+                      settlement.accountName === null ? '' : ` · ${settlement.accountName}`
+                    }`}
+                    titleStyle={estornada ? styles.reversed : undefined}
+                    meta={[
+                      dayMonth(settlement.settledAt.slice(0, 10)),
+                      settlement.createdByName === null ? null : `por ${settlement.createdByName}`,
+                      estornada ? `● Estornada · ${settlement.reversalReason ?? ''}` : null,
+                    ]
+                      .filter((part): part is string => Boolean(part))
+                      .join(' · ')}
+                    metaTone={estornada ? 'danger' : 'secondary'}
+                    right={
+                      estornada ? undefined : (
+                        <Pressable
+                          testID={`estornar-${settlement.id}`}
+                          accessibilityRole="button"
+                          accessibilityLabel="Estornar baixa"
+                          hitSlop={8}
+                          onPress={async () => {
+                            if (!accessToken || !household) return;
+                            const result = await api.reverseSettlement(
+                              accessToken,
+                              household.id,
+                              settlement.id,
+                              {
+                                reason: 'Estorno solicitado pelo usuário',
+                                idempotencyKey: newIdempotencyKey('estorno-baixa'),
+                              },
+                            );
+                            setEntry(result.plannedEntry);
+                            await load();
+                          }}
+                        >
+                          <Text variant="rowMeta" tone="danger">
+                            Estornar
+                          </Text>
+                        </Pressable>
+                      )
+                    }
+                  />
+                );
+              })}
             </Card>
           </View>
         )}
@@ -349,12 +390,25 @@ export function SettlementScreen({
         )}
       </ScrollView>
 
+      <OptionSheet
+        visible={accountSheet}
+        title="Conta usada"
+        testID="folha-conta-usada"
+        options={accounts.map((account) => ({
+          value: account.id,
+          label: account.name,
+          meta: account.primaryMemberName ?? undefined,
+        }))}
+        value={accountId}
+        onSelect={setAccountId}
+        onClose={() => setAccountSheet(false)}
+      />
+
       <View
         style={[
           styles.footer,
           {
             backgroundColor: colors.surface,
-            borderTopColor: colors.border,
             paddingBottom: Math.max(spacing.lg, insets.bottom),
             paddingHorizontal: layout.screenPaddingH,
           },
@@ -367,7 +421,12 @@ export function SettlementScreen({
           disabled={!canConfirm}
           onPress={handleConfirm}
         />
-        <Text variant="rowMeta" tone="secondary" style={{ marginTop: spacing.sm }}>
+        {/* Centralizada, como no screenshot. */}
+        <Text
+          variant="rowMeta"
+          tone="secondary"
+          style={[styles.microcopy, { marginTop: spacing.sm }]}
+        >
           {settlesFully
             ? `A conta ficará como ● ${entry.nature === 'PAYABLE' ? 'Paga' : 'Recebida'}. Baixas podem ser estornadas, nunca apagadas.`
             : 'A conta ficará como ● Parcial. Baixas podem ser estornadas, nunca apagadas.'}
@@ -386,10 +445,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 4,
   },
-  statusLine: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chargeRow: { flexDirection: 'row', gap: 8 },
   charge: { flex: 1 },
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  reverseButton: { width: 92 },
-  footer: { borderTopWidth: 1, paddingTop: 12 },
+  // "CONTA USADA · Conta Corrente · Bruno" precisa de mais espaço que a data.
+  accountField: { flex: 1.6 },
+  reversed: { textDecorationLine: 'line-through' },
+  microcopy: { textAlign: 'center' },
+  // Sem linha divisória: o screenshot mostra o CTA sobre o próprio fundo.
+  footer: { paddingTop: 12 },
 });

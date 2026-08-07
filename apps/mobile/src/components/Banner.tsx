@@ -11,7 +11,8 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
 
-export type BannerKind = 'info' | 'warning' | 'error' | 'offline';
+/** `brand` é o brandSoft/brand do "Total que sai da conta" (1e) e da 2e. */
+export type BannerKind = 'info' | 'warning' | 'error' | 'offline' | 'brand';
 
 export type BannerProps = {
   readonly kind: BannerKind;
@@ -40,6 +41,7 @@ export function Banner({
     offline: { background: colors.infoSoft, foreground: colors.info },
     warning: { background: colors.warningSoft, foreground: colors.warning },
     error: { background: colors.dangerSoft, foreground: colors.danger },
+    brand: { background: colors.brandSoft, foreground: colors.brand },
   }[kind];
 
   const text = kind === 'offline' ? `◌ ${message}` : message;

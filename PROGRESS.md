@@ -50,6 +50,32 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   foram exercitados no emulador — aberta, vencida, parcial e paga, mais
   "recorrente" e "parcelamento".
 
+- **1e · Dar baixa (claro)** — bate com o screenshot depois das oito divergências
+  abaixo, com os dois estados exercitados (conta sem baixa e conta com baixa
+  parcial, que traz o histórico).
+
+### Divergências da 1e, corrigidas
+
+1. **Subtítulo com a data de vencimento** ("Água · vence 03/08/2026") onde o
+   design traz a natureza da conta: "Mensalidade escola — Caio · conta a pagar".
+2. **"Já pago" sem a contagem de baixas**; o design escreve "Já pago (1 baixa)".
+3. **Status como chip**, onde o design usa "44% pago · status: ● Parcial" numa
+   linha de texto só, com o ponto na cor do estado. E "Vencido" virou "Vencida".
+4. **Juros, multa e desconto como texto solto** ("0,00"); o design mostra
+   dinheiro formatado dentro do campo ("R$ 6,20").
+5. **Conta usada como fila de chips** e **data como campo de texto ISO**
+   ("2026-08-07"). O design tem dois selects lado a lado: "CONTA USADA · Conta
+   Corrente · Bruno ▾" e "DATA · Hoje, 06/08 ▾". Nasceram daí os componentes
+   `SelectField`, `OptionSheet` e `DateField` — este último com o seletor de
+   data nativo do sistema, que não traz tema próprio.
+6. **Banner do total em info (azul), com a soma escrita na frase.** O design usa
+   brandSoft com o rótulo à esquerda e o valor à direita.
+7. **Histórico de baixas fora do desenho**: o design tem ✓ em container
+   incomeSoft, "R$ 400,00 · Conta Corrente" no título, "02/08 · por Ana" na meta
+   e "Estornar" como texto danger à direita — o app usava um botão com borda.
+8. **Microcopy alinhada à esquerda** e rodapé com linha divisória; o design
+   centraliza a microcopy e não desenha divisor.
+
 ### Divergências da 1d, corrigidas
 
 1. **Seletor de mês fora do cabeçalho.** O app punha "+ Nova" ali e o seletor

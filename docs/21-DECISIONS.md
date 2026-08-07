@@ -62,6 +62,8 @@ Registro das decisões tomadas durante a implementação, conforme o processo do
 | D-049 | `settledPercentage` **arredonda** (e nunca devolve 100 com saldo em aberto) | O design escreve "44% pago" para R$ 400,00 de R$ 910,10 (1d e 1e); truncando daria 43. O teto de 99 com saldo em aberto impede que o arredondamento sugira conta quitada. A proibição de `Math.round` do ESLint vale para dinheiro — aqui é percentual de exibição, e nenhum centavo é derivado dele. |
 | D-050 | Os testes de integração rodam em um banco próprio (`TEST_DATABASE_NAME`) | Cada arquivo de teste dá TRUNCATE; enquanto apontavam para o banco de desenvolvimento, `npm run verify` apagava o seed dos screenshots e o gate visual ficava sem dados. `npm run db:test:prepare` cria o banco e repete os GRANT de `infra/postgres-init/01-roles.sql`, que são por banco. Vazio (CI) mantém o comportamento antigo, onde o Postgres já é efêmero. |
 
+| D-051 | O seletor de data é o nativo do sistema (`@react-native-community/datetimepicker`), embrulhado em `DateField` | A 1e mostra "DATA · Hoje, 06/08 ▾", um select, não um campo onde se digita "2026-08-08". A proibição do CLAUDE.md item 4 é a kits de UI com tema próprio (Paper, NativeBase…); um seletor que abre o calendário do sistema operacional não desenha nada dentro da tela. A caixa fechada é o `SelectField`, que é o `Field` do COMPONENT-SPECS. |
+
 ## Decisões que exigem validação humana antes de produção
 
 - Provedor de e-mail transacional (envio de confirmação e magic link).

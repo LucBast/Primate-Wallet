@@ -12,6 +12,7 @@ import {
   ArrowUp,
   Bell,
   Calendar,
+  Check,
   Fingerprint,
   ChevronLeft,
   ChevronRight,
@@ -42,7 +43,8 @@ export const icons = {
   estorno: RotateCcw,
   cartao: CreditCard,
 
-  // Apoio (⌫ ⚡ 🔔)
+  // Apoio (⌫ ⚡ 🔔 ✓)
+  confirmado: Check,
   apagar: Delete,
   energia: Zap,
   notificacao: Bell,
