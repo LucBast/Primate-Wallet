@@ -58,6 +58,15 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **8a · Criação de família (claro)** — a tela existia como formulário genérico
+  ("sem screenshot dedicado"); o Turno 8 trouxe o screenshot e ela foi refeita:
+  ícone de casa em brandSoft, título e subtítulo verbatim, helper "é o nome que
+  os outros membros veem", Moeda e Fuso horário como selects lado a lado (eram
+  fixos em BRL/São Paulo, sem UI), e o card informativo "Seu papel" com o selo
+  Proprietário e as três habilidades — informativo porque o papel é derivado de
+  quem cria, não escolhido. **Falta o link "Tenho um convite para aceitar"**: a
+  rota de convite exige um token, que só chega por deep link, e não existe
+  fluxo de digitar código.
 - **4a · Visão geral / 4b · Por categoria / 4c · Por membro (claro)** — batem
   com os screenshots depois de sete correções: seletor de mês em pílula no
   cabeçalho (era linha centralizada), o segmented "Geral | Categoria | Membro"
