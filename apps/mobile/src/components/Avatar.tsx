@@ -24,14 +24,15 @@ export type AvatarProps = {
   /** Semente da cor: use o id do membro para manter a cor estável. */
   readonly seed?: string | undefined;
   readonly size?: AvatarSize | undefined;
-  /** Sobrepõe a cor (usado no avatar "?" de convite pendente). */
+  /** Convite pendente: fundo neutro e "?" no lugar da inicial (3a). */
   readonly muted?: boolean | undefined;
   /**
-   * Fixa a cor em brand, ignorando a semente. O avatar de quem está logado
-   * aparece em brand no header do Início (screenshot 1b-inicio.png), enquanto
-   * na lista de membros cada pessoa tem a sua cor.
+   * Fixa a cor, ignorando a semente. O avatar de quem está logado aparece em
+   * brand no header do Início (1b-inicio.png); nas linhas de compra da fatura
+   * (1f) o círculo é chipNeutral com a inicial em textTertiary, porque ali o
+   * membro é contexto e não protagonista.
    */
-  readonly tone?: 'seed' | 'brand' | undefined;
+  readonly tone?: 'seed' | 'brand' | 'neutral' | undefined;
 };
 
 function initial(name: string): string {
@@ -59,7 +60,8 @@ export function Avatar({
 
   // Paleta de avatares: só cores dos tokens.
   const palette = [colors.brand, colors.cardWine, colors.pending, colors.warning, colors.info];
-  const background = muted
+  const neutral = muted || tone === 'neutral';
+  const background = neutral
     ? colors.chipNeutral
     : tone === 'brand'
       ? colors.brand
@@ -76,7 +78,7 @@ export function Avatar({
     >
       <RNText
         style={{
-          color: muted ? colors.textSecondary : colors.surfaceElevated,
+          color: neutral ? colors.textTertiary : colors.surfaceElevated,
           fontFamily: font.extrabold,
           fontSize: glyph,
         }}

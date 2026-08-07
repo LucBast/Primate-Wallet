@@ -54,6 +54,40 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   abaixo, com os dois estados exercitados (conta sem baixa e conta com baixa
   parcial, que traz o histórico).
 
+- **1f · Fatura do cartão (claro)** — bate com o screenshot depois das dez
+  divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
+  pagamento parcial na tela.
+
+### Divergências da 1f, corrigidas
+
+1. **Navegação entre faturas numa linha própria**, com chevrons e o intervalo do
+   ciclo. O design põe "‹ jul · ago · set ›" no subtítulo, ao lado de
+   "Cartão Azul • • • • 4412".
+2. **A tela abria na fatura mais recente** — que, com um parcelamento em 10x, é
+   a de daqui a dez meses. Agora abre no ciclo corrente.
+3. **Faixa de status do card só com "FATURA"**; o design escreve
+   "FATURA FECHADA · VENCE 15/08".
+4. **Chip de status opaco** sobre o cartão escuro; COMPONENT-SPECS pede
+   translúcido (branco a 16%, medido).
+5. **Pago/Falta pagar e limite numa frase só**, abaixo das barras. O design põe
+   dois rótulos alinhados às pontas ACIMA de cada barra.
+6. **Barras com as cores erradas**: o preenchimento do pagamento é toastAction e
+   o do limite é branco, sobre trilho branco a 18% — não income e info.
+7. **"COMPRAS · 12"** onde o design escreve "COMPRAS · 12 ITENS", e
+   **"PAGAMENTOS · N"** onde o design não conta.
+8. **Parcela grudada na descrição da compra.** O servidor gravava
+   "Curso de inglês — Caio · parcela 03/10" como nome da movimentação; o design
+   mostra o título limpo e um selo. Virou coluna (migração 0014, com o resgate
+   das linhas já existentes), nasceu o componente `Badge` e um teste garante a
+   descrição limpa.
+9. **Valor da compra em expense com sinal.** Medido no screenshot: textPrimary
+   sem sinal — na fatura a compra já é despesa por definição. Estorno e
+   reembolso ficam em income com "−". A linha estornada esmaece inteira.
+10. **Avatar do membro com a cor da paleta** onde o design usa chipNeutral com a
+    inicial em textTertiary; **linha de pagamento** sem valor à direita e com o
+    ✓ dentro do título, em vez do container incomeSoft do design. Faltava também
+    a microcopy do CTA.
+
 ### Divergências da 1e, corrigidas
 
 1. **Subtítulo com a data de vencimento** ("Água · vence 03/08/2026") onde o

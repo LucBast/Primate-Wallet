@@ -141,17 +141,19 @@ export function createCardService(deps: { readonly db: Database }) {
       status: string;
       installment_number: number | null;
       installment_total: number | null;
+      reversal_reason: string | null;
     }>(
       `SELECT i.id, i.transaction_id, t.description, i.amount_minor, t.occurred_at,
               m.display_name AS member_name, c.name AS category_name, t.transaction_type,
-              t.status,
-              (SELECT pe.installment_number FROM planned_entries pe
-                WHERE pe.installment_group_id IS NOT NULL AND pe.id = NULL) AS installment_number,
-              NULL::integer AS installment_total
+              t.status, t.installment_number, t.installment_total,
+              -- O motivo do estorno mora na transação de REVERSAL que aponta
+              -- para esta; a linha "● Estornada em 03/08 · motivo: …" da 1f.
+              r.reason AS reversal_reason
          FROM card_statement_items i
          JOIN transactions t ON t.id = i.transaction_id
          LEFT JOIN household_members m ON m.id = t.member_id
          LEFT JOIN categories c ON c.id = t.category_id
+         LEFT JOIN transactions r ON r.reversed_transaction_id = t.id
         WHERE i.card_statement_id = $1
         ORDER BY t.occurred_at, t.created_at`,
       [statementId],
@@ -215,6 +217,7 @@ export function createCardService(deps: { readonly db: Database }) {
         status: item.status,
         installmentNumber: item.installment_number,
         installmentTotal: item.installment_total,
+        reversalReason: item.reversal_reason,
       })),
       payments: payments.rows.map((payment) => ({
         id: payment.id,
@@ -302,25 +305,23 @@ export function createCardService(deps: { readonly db: Database }) {
             /* c8 ignore next */
             if (!cycle) throw new DomainError('INTERNAL_ERROR');
 
-            const label =
-              input.installments > 1
-                ? `${input.description} · parcela ${String(index + 1).padStart(2, '0')}/${String(input.installments).padStart(2, '0')}`
-                : input.description;
-
+            // A parcela vai nas colunas, não na descrição: o design mostra o
+            // título limpo e "parcela 03/10" como selo (migração 0014).
             const transactionId = randomUUID();
             await client.query(
               `INSERT INTO transactions (
                  id, household_id, transaction_type, description, amount_minor, occurred_at,
                  competence_date, account_id, member_id, category_id, counterparty_id, source,
-                 status, notes, idempotency_key, created_by
+                 status, notes, idempotency_key, created_by,
+                 installment_group_id, installment_number, installment_total
                ) VALUES (
                  $1, $2, 'CARD_PURCHASE', $3, $4, $5::date::timestamptz, $6::date, $7, $8, $9,
-                 $10, 'MANUAL', 'POSTED', $11, $12, $13
+                 $10, 'MANUAL', 'POSTED', $11, $12, $13, $14, $15, $16
                )`,
               [
                 transactionId,
                 householdId,
-                label,
+                input.description,
                 amount,
                 input.purchaseDate,
                 // Competência da parcela é o fechamento do ciclo em que ela cai.
@@ -332,6 +333,9 @@ export function createCardService(deps: { readonly db: Database }) {
                 input.notes ?? null,
                 `${input.idempotencyKey}:${index + 1}`,
                 userId,
+                groupId,
+                input.installments > 1 ? index + 1 : null,
+                input.installments > 1 ? input.installments : null,
               ],
             );
             transactionIds.push(transactionId);
@@ -343,13 +347,6 @@ export function createCardService(deps: { readonly db: Database }) {
                VALUES ($1, $2, $3, $4)`,
               [householdId, statementId, transactionId, amount],
             );
-
-            if (groupId !== null) {
-              await client.query(
-                `UPDATE transactions SET notes = COALESCE(notes, '') WHERE id = $1`,
-                [transactionId],
-              );
-            }
           }
 
           await insertAuditLog(client, {

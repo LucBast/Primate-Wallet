@@ -29,6 +29,8 @@ export const cardStatementItemSchema = z.object({
   status: z.string(),
   installmentNumber: z.int().nullable(),
   installmentTotal: z.int().nullable(),
+  /** Motivo do estorno — a linha "● Estornada em 03/08 · motivo: …" da 1f. */
+  reversalReason: z.string().nullable(),
 });
 export type CardStatementItem = z.infer<typeof cardStatementItemSchema>;
 

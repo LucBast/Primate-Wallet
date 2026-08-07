@@ -169,6 +169,40 @@ describe('compra no cartão (docs/04 §10)', () => {
     ]);
   });
 
+  // A 1f mostra "Sofá" no título e "parcela 01/03" num selo: a parcela vive em
+  // coluna própria, não grudada na descrição (migração 0014).
+  it('guarda a parcela em coluna e mantém a descrição limpa', async () => {
+    const base = await setup();
+    await post(base, `/households/${base.householdId}/card-purchases`, {
+      accountId: base.cardId,
+      description: 'Sofá',
+      amountMinor: 100_000,
+      purchaseDate: '2026-08-05',
+      memberId: base.memberId,
+      installments: 3,
+      idempotencyKey: key('parcela-coluna'),
+    });
+
+    const statements = await get(
+      base,
+      `/households/${base.householdId}/card-statements?accountId=${base.cardId}`,
+    );
+    const items = statements
+      .json()
+      .items.flatMap((statement: { items: unknown[] }) => statement.items) as ReadonlyArray<{
+      description: string;
+      installmentNumber: number | null;
+      installmentTotal: number | null;
+    }>;
+
+    expect(items).toHaveLength(3);
+    for (const item of items) {
+      expect(item.description).toBe('Sofá');
+      expect(item.installmentTotal).toBe(3);
+    }
+    expect(items.map((item) => item.installmentNumber).sort()).toEqual([1, 2, 3]);
+  });
+
   it('recusa chave de idempotência repetida', async () => {
     const base = await setup();
     const payload = {

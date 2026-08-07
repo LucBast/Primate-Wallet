@@ -70,6 +70,8 @@ export type ListRowProps = {
   readonly title: string;
   /** Conta paga ou cancelada leva line-through no TÍTULO (1d, 1g). */
   readonly titleStyle?: TextStyle | undefined;
+  /** Selo ao lado do título — "parcela 03/10" na 1f. */
+  readonly badge?: React.ReactNode | undefined;
   readonly meta?: string | undefined;
   /** Cor semântica do meta quando ele carrega status. */
   readonly metaTone?: React.ComponentProps<typeof Text>['tone'];
@@ -91,6 +93,7 @@ export type ListRowProps = {
 export function ListRow({
   title,
   titleStyle,
+  badge,
   meta,
   metaTone = 'secondary',
   left,
@@ -110,9 +113,18 @@ export function ListRow({
       {left === undefined ? null : <View style={styles.left}>{left}</View>}
 
       <View style={styles.texts}>
-        <Text variant="rowTitle" style={titleStyle}>
-          {title}
-        </Text>
+        {badge === undefined ? (
+          <Text variant="rowTitle" style={titleStyle}>
+            {title}
+          </Text>
+        ) : (
+          <View style={styles.titleLine}>
+            <Text variant="rowTitle" style={titleStyle}>
+              {title}
+            </Text>
+            {badge}
+          </View>
+        )}
         {meta === undefined ? null : (
           <Text variant="rowMeta" tone={metaTone}>
             {meta}
@@ -216,6 +228,7 @@ const styles = StyleSheet.create({
   },
   left: { justifyContent: 'center' },
   texts: { flex: 1, gap: 2 },
+  titleLine: { alignItems: 'center', flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
   pressed: { opacity: 0.7 },
   statCard: {
     borderWidth: 1,

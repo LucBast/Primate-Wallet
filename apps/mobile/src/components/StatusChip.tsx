@@ -12,6 +12,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
+import { withAlpha } from '../design-system/spec-values';
 
 export type StatusKind =
   | 'aberto'
@@ -27,6 +28,11 @@ export type StatusChipProps = {
   readonly status: StatusKind;
   /** Complemento da especificação: "falta R$ 510,10", "há 3 dias". */
   readonly detail?: string | undefined;
+  /**
+   * Sobre o card escuro da fatura (1f): "chip de status translúcido"
+   * (COMPONENT-SPECS §Cards de destaque) — branco a 16% com texto branco.
+   */
+  readonly onCard?: boolean | undefined;
 };
 
 const LABELS: Record<StatusKind, string> = {
@@ -40,7 +46,7 @@ const LABELS: Record<StatusKind, string> = {
   aguardandoSincronizacao: 'Aguardando sincronização',
 };
 
-export function StatusChip({ status, detail }: StatusChipProps): React.JSX.Element {
+export function StatusChip({ status, detail, onCard = false }: StatusChipProps): React.JSX.Element {
   const { colors, radius } = useTheme();
 
   const palette: Record<StatusKind, { background: string; foreground: string }> = {
@@ -54,7 +60,9 @@ export function StatusChip({ status, detail }: StatusChipProps): React.JSX.Eleme
     aguardandoSincronizacao: { background: colors.infoSoft, foreground: colors.info },
   };
 
-  const { background, foreground } = palette[status];
+  const { background, foreground } = onCard
+    ? { background: withAlpha(colors.surfaceElevated, 0.16), foreground: colors.surfaceElevated }
+    : palette[status];
   // ◌ para sincronização pendente; ● para todos os demais estados.
   const marker = status === 'aguardandoSincronizacao' ? '◌' : '●';
   const label = detail === undefined ? LABELS[status] : `${LABELS[status]} · ${detail}`;

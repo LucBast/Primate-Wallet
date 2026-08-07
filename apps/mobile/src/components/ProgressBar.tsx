@@ -9,15 +9,25 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '../design-system/theme';
+import { withAlpha } from '../design-system/spec-values';
 
-export type ProgressTone = 'warning' | 'income' | 'expense' | 'danger' | 'brand' | 'info';
+export type ProgressTone =
+  | 'warning'
+  | 'income'
+  | 'expense'
+  | 'danger'
+  | 'brand'
+  | 'info'
+  /** Barras do card escuro da fatura: pagamento em toastAction, limite em branco. */
+  | 'statement'
+  | 'onCard';
 
 export type ProgressBarProps = {
   /** 0–100. */
   readonly percent: number;
   readonly tone?: ProgressTone;
   readonly height?: 5 | 7 | 8;
-  readonly trackTone?: 'neutral' | 'onBrand';
+  readonly trackTone?: 'neutral' | 'onBrand' | 'onCard';
   readonly accessibilityLabel: string;
   readonly testID?: string | undefined;
 };
@@ -40,7 +50,16 @@ export function ProgressBar({
     danger: colors.danger,
     brand: colors.brand,
     info: colors.info,
+    statement: colors.toastAction,
+    onCard: colors.surface,
   }[tone];
+
+  // Trilho sobre o card escuro: branco a 18%, medido em 1f-fatura.png.
+  const track = {
+    neutral: colors.chipNeutral,
+    onBrand: colors.toastAction,
+    onCard: withAlpha(colors.surfaceElevated, 0.18),
+  }[trackTone];
 
   return (
     <View
@@ -51,7 +70,7 @@ export function ProgressBar({
       style={[
         styles.track,
         {
-          backgroundColor: trackTone === 'neutral' ? colors.chipNeutral : colors.toastAction,
+          backgroundColor: track,
           borderRadius: radius.pill,
           height,
         },

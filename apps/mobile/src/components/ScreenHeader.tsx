@@ -12,7 +12,11 @@ import { icons, iconSize } from '../design-system/icons';
 
 export type ScreenHeaderProps = {
   readonly title: string;
-  readonly subtitle?: string | undefined;
+  /**
+   * Texto ou linha própria — a 1f põe "Cartão Azul • • • • 4412 · ‹ jul · ago ·
+   * set ›" aqui, com os meses tocáveis.
+   */
+  readonly subtitle?: string | React.ReactNode | undefined;
   readonly onBack?: (() => void) | undefined;
   readonly left?: React.ReactNode | undefined;
   readonly right?: React.ReactNode | undefined;
@@ -58,7 +62,9 @@ export function ScreenHeader({
 
       <View style={styles.texts}>
         <Text variant={size === 'page' ? 'pageTitle' : 'screenTitle'}>{title}</Text>
-        {subtitle === undefined ? null : onPressSubtitle === undefined ? (
+        {subtitle === undefined ? null : typeof subtitle !== 'string' ? (
+          subtitle
+        ) : onPressSubtitle === undefined ? (
           <Text variant="rowMeta" tone="secondary">
             {subtitle}
           </Text>
