@@ -58,6 +58,13 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **8e · Transferência (claro)** — bate com o screenshot depois de seis
+  correções: título "Transferência", valor grande **neutro** e centralizado (o
+  app usava o MoneyInput com borda brand, que é o card de receita/despesa), o
+  par De/Para num card único com os saldos atuais em vez de duas filas de
+  chips, Membro e Data lado a lado, a tarifa atrás de um toggle "Houve tarifa
+  bancária" com valor e categoria próprios — antes era um campo solto chamado
+  "Tarifa (opcional)" —, e a prévia dos saldos depois, que não existia.
 - **8d · Gestão de categorias (claro)** — bate com o screenshot depois de seis
   correções: "+ Nova" como botão primário no cabeçalho (era um formulário solto
   no fim da tela), segmented no singular, linhas com o ícone da categoria e a
