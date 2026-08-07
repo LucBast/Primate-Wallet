@@ -9,7 +9,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import type { AuditEntry } from '@ff/api-contracts';
-import { formatDate, isoDate } from '@ff/domain';
+import { familyToday, formatMoney, isoDate, minor } from '@ff/domain';
 import { Banner } from '../../components/Banner';
 import { Card, SectionLabel } from '../../components/Card';
 import { ScreenHeader } from '../../components/ScreenHeader';
@@ -17,6 +17,7 @@ import { EmptyState, RecoverableError, SkeletonList } from '../../components/sta
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { ApiRequestError } from '../../services/api-client';
+import { dayHeader } from '../../services/dates';
 import { useSessionStore } from '../auth/session-store';
 import * as api from './household-api';
 import { useActiveHousehold } from './household-store';
@@ -43,6 +44,15 @@ const ACTION_PHRASE: Record<string, string> = {
   TRANSFER_CREATED: 'registrou uma transferência',
   CARD_PURCHASE_CREATED: 'registrou uma compra no cartão',
   CARD_STATEMENT_PAID: 'pagou uma fatura',
+  CARD_STATEMENT_CLOSED: 'fechou uma fatura',
+  CARD_PAYMENT_REVERSED: 'estornou um pagamento de fatura',
+  CARD_REFUND_CREATED: 'registrou um reembolso no cartão',
+  SETTLEMENT_REVERSED: 'estornou uma baixa',
+  PLANNED_ENTRY_UPDATED: 'alterou uma conta prevista',
+  PLANNED_ENTRY_CANCELED: 'cancelou uma conta prevista',
+  ALLOCATIONS_UPDATED: 'alterou o rateio de uma movimentação',
+  MEMBER_SUSPENDED: 'suspendeu um membro',
+  ATTACHMENT_CREATED: 'anexou um arquivo',
   APPROVAL_APPROVED: 'aprovou um lançamento',
   APPROVAL_REJECTED: 'recusou um lançamento',
   EXPORT_REQUESTED: 'exportou dados da família',
@@ -53,17 +63,52 @@ function phraseFor(entry: AuditEntry): string {
   return `${actor} ${ACTION_PHRASE[entry.action] ?? entry.action.toLowerCase().replace(/_/g, ' ')}`;
 }
 
+/**
+ * Campos que a auditoria mostra, com rótulo em pt-BR.
+ *
+ * A lista é uma PERMISSÃO, não uma tradução: o que não está aqui não aparece.
+ * O screenshot mostra "R$ 6.397,50 → R$ 6.410,25", não `reversalId: — →
+ * 62825a04-…` — id interno e estado técnico não são texto de usuário.
+ */
+const FIELD_LABEL: Record<string, string> = {
+  amountMinor: 'valor',
+  netMinor: 'valor',
+  principalMinor: 'principal',
+  outstandingMinor: 'saldo em aberto',
+  balanceMinor: 'saldo',
+  newBalanceMinor: 'saldo',
+  previousBalanceMinor: 'saldo anterior',
+  creditLimitMinor: 'limite',
+  approvalThresholdMinor: 'aprovação acima de',
+  name: 'nome',
+  description: 'descrição',
+  role: 'papel',
+  approvalMode: 'aprovação',
+  visibilityScope: 'quem pode ver',
+  dueDate: 'vencimento',
+  installments: 'parcelas',
+};
+
+/** Valor legível: centavos viram dinheiro; ausente vira travessão. */
+function readable(key: string, value: unknown): string {
+  if (value === null || value === undefined) return '—';
+  if (key.endsWith('Minor') && typeof value === 'number') return formatMoney(minor(value));
+  return String(value);
+}
+
 /** "antes → depois" só quando o registro guardou os dois lados. */
 function changeLine(entry: AuditEntry): string | null {
   if (!entry.beforeData || !entry.afterData) return null;
   const changed = Object.keys(entry.afterData).filter(
-    (key) => JSON.stringify(entry.afterData?.[key]) !== JSON.stringify(entry.beforeData?.[key]),
+    (key) =>
+      key in FIELD_LABEL &&
+      JSON.stringify(entry.afterData?.[key]) !== JSON.stringify(entry.beforeData?.[key]),
   );
   if (changed.length === 0) return null;
   return changed
     .map(
       (key) =>
-        `${key}: ${String(entry.beforeData?.[key] ?? '—')} → ${String(entry.afterData?.[key] ?? '—')}`,
+        `${FIELD_LABEL[key]}: ${readable(key, entry.beforeData?.[key])} → ${readable(key, entry.afterData?.[key])}`,
     )
     .join(' · ');
 }
@@ -77,6 +122,11 @@ export function ActivityScreen({ onBack }: { readonly onBack: () => void }): Rea
 
   const [entries, setEntries] = useState<AuditEntry[] | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const today =
+    household === null
+      ? isoDate(new Date().toISOString().slice(0, 10))
+      : familyToday(household.timezone);
 
   const load = useCallback(async () => {
     if (!accessToken || !household) return;
@@ -111,7 +161,7 @@ export function ActivityScreen({ onBack }: { readonly onBack: () => void }): Rea
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
-      <ScreenHeader title="Atividade da família" onBack={onBack} size="screen" />
+      <ScreenHeader title="Atividade" onBack={onBack} size="screen" />
 
       <ScrollView
         contentContainerStyle={[
@@ -119,12 +169,6 @@ export function ActivityScreen({ onBack }: { readonly onBack: () => void }): Rea
           { paddingHorizontal: layout.screenPaddingH, paddingBottom: spacing.xxxl },
         ]}
       >
-        <Banner
-          kind="info"
-          testID="banner-auditoria"
-          message="Registramos toda criação, alteração, baixa, estorno, aprovação e mudança de permissão. Esta lista é visível ao proprietário e aos administradores."
-        />
-
         {error !== null ? (
           <View style={{ marginTop: spacing.md }}>
             <RecoverableError message={error} onRetry={() => void load()} testID="erro-atividade" />
@@ -140,8 +184,8 @@ export function ActivityScreen({ onBack }: { readonly onBack: () => void }): Rea
           />
         ) : (
           days.map(([day, items]) => (
-            <View key={day} style={{ marginTop: spacing.xl }}>
-              <SectionLabel>{formatDate(isoDate(day)).toUpperCase()}</SectionLabel>
+            <View key={day} style={{ marginTop: spacing.md }}>
+              <SectionLabel>{dayHeader(day, today)}</SectionLabel>
               <Card padded={false}>
                 {items.map((entry, index) => {
                   const change = changeLine(entry);
@@ -179,6 +223,15 @@ export function ActivityScreen({ onBack }: { readonly onBack: () => void }): Rea
             </View>
           ))
         )}
+
+        {/* O banner fecha a tela no screenshot, não a abre. Copy verbatim. */}
+        <View style={{ marginTop: spacing.md }}>
+          <Banner
+            kind="info"
+            testID="banner-auditoria"
+            message="Toda criação, alteração, baixa, estorno, aprovação e mudança de permissão fica registrada com autor, dados anteriores e novos. Visível para Proprietário e Administradores."
+          />
+        </View>
       </ScrollView>
     </View>
   );

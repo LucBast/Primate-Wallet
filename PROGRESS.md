@@ -58,6 +58,17 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **3d · Atividade (claro)** — bate com o screenshot depois de cinco correções:
+  título "Atividade", cabeçalho de dia "HOJE · SEX, 07/08", banner fechando a
+  tela em vez de abrindo, com a copy verbatim, e — a mais séria — a linha
+  "antes → depois" deixou de despejar interno: mostrava
+  `status: POSTED → REVERSED · reversalId: — → 62825a04-…` e `netMinor: — →
+  15000`. Agora só campos de uma lista de permissão aparecem, com rótulo em
+  pt-BR e centavos formatados como dinheiro. Dez ações que caíam no nome cru em
+  inglês ("Ana card statement closed") ganharam frase.
+  **Falta o botão "Filtrar ▾"** do cabeçalho: nem o SCREEN-SPECS nem o
+  COMPONENT-SPECS dizem por o que ele filtra, e inventar as opções seria criar
+  copy fora da especificação.
 - **3b · Permissões do membro (claro)** — bate com o screenshot depois de três
   correções: "Exigir aprovação" vira select em pílula pendingSoft (era fila de
   chips), "Valor limite sem aprovação" vira linha do mesmo card com o valor à
