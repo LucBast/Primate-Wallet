@@ -31,6 +31,7 @@ import type {
 } from '@ff/api-contracts';
 import { withUserTransaction, type Database, type PoolClient } from '../../db/pool.js';
 import { insertAuditLog } from '../auth/repository.js';
+import { ensureStatement } from './statement.js';
 import type { RequestContext } from '../auth/service.js';
 
 const OPERATORS = ['OWNER', 'ADMIN', 'ADULT'];
@@ -80,34 +81,8 @@ async function loadCard(
 }
 
 /** Garante que existe a fatura do ciclo e devolve seu id. */
-async function ensureStatement(
-  client: PoolClient,
-  householdId: string,
-  accountId: string,
-  cycle: { cycleStart: string; cycleEnd: string; closingDate: string; dueDate: string },
-): Promise<string> {
-  const existing = await client.query<{ id: string }>(
-    `SELECT id FROM card_statements
-      WHERE account_id = $1 AND cycle_start_date = $2::date AND cycle_end_date = $3::date`,
-    [accountId, cycle.cycleStart, cycle.cycleEnd],
-  );
-  const found = existing.rows[0]?.id;
-  if (found) return found;
-
-  const created = await client.query<{ id: string }>(
-    `INSERT INTO card_statements
-       (household_id, account_id, cycle_start_date, cycle_end_date, closing_date, due_date)
-     VALUES ($1, $2, $3::date, $4::date, $5::date, $6::date)
-     ON CONFLICT (account_id, cycle_start_date, cycle_end_date) DO UPDATE
-       SET updated_at = now()
-     RETURNING id`,
-    [householdId, accountId, cycle.cycleStart, cycle.cycleEnd, cycle.closingDate, cycle.dueDate],
-  );
-  const id = created.rows[0]?.id;
-  /* c8 ignore next */
-  if (!id) throw new DomainError('INTERNAL_ERROR');
-  return id;
-}
+// `ensureStatement` mora em ./statement.js: os três caminhos que criam compra no
+// cartão precisam dela, não só este.
 
 export type CardService = ReturnType<typeof createCardService>;
 

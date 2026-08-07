@@ -27,6 +27,7 @@ import type {
 import { withUserTransaction, type Database, type PoolClient } from '../../db/pool.js';
 import { insertAuditLog } from '../auth/repository.js';
 import type { RequestContext } from '../auth/service.js';
+import { attachPurchaseToStatement } from '../card/statement.js';
 
 type TransactionRow = {
   id: string;
@@ -321,6 +322,20 @@ export function createTransactionService(deps: { readonly db: Database }) {
           throw new DomainError('DUPLICATE_IDEMPOTENCY_KEY');
         }
         throw error;
+      }
+
+      // Compra no cartão precisa entrar na fatura do ciclo. Sem isto a dívida
+      // aparece no saldo do cartão, mas a fatura fica zerada e a compra nunca é
+      // cobrada — era o defeito registrado no PROGRESS em 2026-08-07.
+      if (effectiveType === 'CARD_PURCHASE') {
+        await attachPurchaseToStatement(
+          client,
+          householdId,
+          input.accountId,
+          transactionId,
+          input.amountMinor,
+          input.occurredAt ?? today,
+        );
       }
 
       if (input.allocations !== undefined && input.allocations.length > 0) {

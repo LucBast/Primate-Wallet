@@ -173,9 +173,22 @@ filho supervisionado. Telas 1b e 4a–4d.
   segurança, device testing, recovery, runbooks.
 - **Fase 12 — Publicação**: documentos legais, store assets, beta, release, smoke tests.
 
-## Defeito aberto — compra em cartão não entra na fatura
+## Defeito CORRIGIDO — compra em cartão não entrava na fatura
 
-**Gravidade: alta. Encontrado em 2026-08-07 durante o gate visual da 1b.**
+**Encontrado e corrigido em 2026-08-07, durante o gate visual da 1b.**
+
+A anexação à fatura virou `card/statement.ts`, usada pelos TRÊS caminhos que criam
+`CARD_PURCHASE`: o endpoint dedicado, a despesa em conta de cartão e a baixa paga com
+cartão. Três testes de regressão em `card.test.ts` provam os dois caminhos novos e o
+formato exato da linha no dashboard. Depois do `seed:demo`: 1 fatura com 6 itens
+somando R$ 3.250,00, fechando 10/08 e vencendo 15/08 — antes eram 0 e 0.
+
+Também corrigidos junto: o formato da linha (`•••• 4412` e
+`fecha 10/08 · vence 15/08`, COMPONENT-SPECS §Linha de fatura) e o tratamento dela na
+1b — ícone `credit-card` em brandSoft, sem duplicar "vence", valor em textPrimary
+porque fatura não é despesa.
+
+Registro do diagnóstico original, para memória:
 
 Uma despesa lançada em conta de cartão vira `CARD_PURCHASE`
 (`transaction/service.ts:282`), mas **nenhum `card_statement_items` é criado**. Só o

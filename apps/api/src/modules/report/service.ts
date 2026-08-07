@@ -55,6 +55,11 @@ function scopeFor(mode: ReportMode): { dateColumn: string; typeFilter: string } 
 const INCOME_TYPES = `('INCOME', 'REFUND')`;
 const EXPENSE_TYPES = `('EXPENSE', 'CARD_PURCHASE', 'CARD_PAYMENT')`;
 
+/** "10/08" — formato das datas na meta da linha de fatura (COMPONENT-SPECS). */
+function dayMonth(date: Date): string {
+  return date.toISOString().slice(5, 10).split('-').reverse().join('/');
+}
+
 async function context(
   client: PoolClient,
   householdId: string,
@@ -313,15 +318,18 @@ export function createReportService(deps: { readonly db: Database }) {
               return {
                 id: row.id,
                 kind: 'CARD_STATEMENT' as const,
+                // COMPONENT-SPECS §Linha de fatura: quatro U+2022 colados e UM
+                // espaço antes dos dígitos; meta em uma linha só, com fechamento
+                // e vencimento em dd/MM.
                 description:
                   row.card_last_four === null
                     ? `Fatura · ${row.account_name}`
-                    : `Fatura · ${row.account_name} • • • • ${row.card_last_four}`,
+                    : `Fatura · ${row.account_name} •••• ${row.card_last_four}`,
                 amountMinor: Number(row.total) - Number(row.paid),
                 dueDate,
                 nature: 'PAYABLE' as const,
                 overdue: dueDate < today,
-                meta: `fecha ${row.closing_date.toISOString().slice(5, 10).split('-').reverse().join('/')}`,
+                meta: `fecha ${dayMonth(row.closing_date)} · vence ${dayMonth(row.due_date)}`,
               };
             }),
           ]

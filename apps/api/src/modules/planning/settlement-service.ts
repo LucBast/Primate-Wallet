@@ -26,6 +26,7 @@ import type {
 import { withUserTransaction, type Database, type PoolClient } from '../../db/pool.js';
 import { insertAuditLog } from '../auth/repository.js';
 import type { RequestContext } from '../auth/service.js';
+import { attachPurchaseToStatement } from '../card/statement.js';
 
 type SettlementRow = {
   id: string;
@@ -232,6 +233,19 @@ export function createSettlementService(deps: {
               userId,
             ],
           );
+
+          // Pagar uma conta prevista com cartão é compra no cartão, e compra no
+          // cartão entra na fatura do ciclo (ver card/statement.ts).
+          if (transactionType === 'CARD_PURCHASE') {
+            await attachPurchaseToStatement(
+              client,
+              householdId,
+              input.accountId,
+              transactionId,
+              netAmount,
+              input.settledAt,
+            );
+          }
 
           const newSettlementId = randomUUID();
           await client.query(

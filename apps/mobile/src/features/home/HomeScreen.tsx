@@ -342,31 +342,51 @@ export function HomeScreen({
                   </View>
 
                   {data.upcoming.map((item) => {
+                    // A fatura tem tratamento próprio (COMPONENT-SPECS §Linha de
+                    // fatura): ícone credit-card em brandSoft, meta já pronta no
+                    // servidor ("fecha 10/08 · vence 15/08") e valor em
+                    // textPrimary sem sinal, porque fatura não é despesa.
+                    const fatura = item.kind === 'CARD_STATEMENT';
                     const receita = item.nature === 'RECEIVABLE';
-                    const Icone = receita ? icons.receita : icons.despesa;
+                    const Icone = fatura ? icons.cartao : receita ? icons.receita : icons.despesa;
+                    const corIcone = fatura
+                      ? colors.brand
+                      : receita
+                        ? colors.income
+                        : colors.expense;
+                    const fundoIcone = fatura
+                      ? colors.brandSoft
+                      : receita
+                        ? colors.incomeSoft
+                        : colors.expenseSoft;
+
                     return (
                       <ListRow
                         key={item.id}
                         testID={`compromisso-${item.id}`}
                         title={item.description}
                         left={
-                          <IconBadge background={receita ? colors.incomeSoft : colors.expenseSoft}>
-                            <Icone
-                              size={iconSize.row}
-                              color={receita ? colors.income : colors.expense}
-                            />
+                          <IconBadge background={fundoIcone}>
+                            <Icone size={iconSize.row} color={corIcone} />
                           </IconBadge>
                         }
-                        meta={[
-                          item.overdue ? 'vencida' : `vence ${dueLabel(item.dueDate)}`,
-                          item.meta,
-                        ]
-                          .filter((part): part is string => Boolean(part))
-                          .join(' · ')}
+                        meta={
+                          fatura
+                            ? (item.meta ?? undefined)
+                            : [
+                                item.overdue ? 'vencida' : `vence ${dueLabel(item.dueDate)}`,
+                                item.meta,
+                              ]
+                                .filter((part): part is string => Boolean(part))
+                                .join(' · ')
+                        }
                         metaTone={item.overdue ? 'danger' : 'secondary'}
                         onPress={onOpenPlanning}
                         right={
-                          <Text variant="moneyRow" tone={receita ? 'income' : 'expense'}>
+                          <Text
+                            variant="moneyRow"
+                            tone={fatura ? 'primary' : receita ? 'income' : 'expense'}
+                          >
                             {formatMoney(minor(item.amountMinor))}
                           </Text>
                         }

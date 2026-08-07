@@ -437,3 +437,101 @@ describe('reembolso', () => {
     expect(statements.json().items[0].items).toHaveLength(2);
   });
 });
+
+/**
+ * Regressão do defeito encontrado no gate visual da 1b: havia três caminhos que
+ * criam CARD_PURCHASE e só o endpoint dedicado anexava a compra a uma fatura.
+ * Nos outros dois a dívida aparecia no saldo do cartão e a fatura ficava zerada
+ * — a compra nunca era cobrada.
+ */
+describe('toda compra no cartão entra na fatura', () => {
+  it('despesa lançada em conta de cartão vira item de fatura', async () => {
+    const base = await setup();
+
+    const expense = await post(base, `/households/${base.householdId}/expenses`, {
+      description: 'Mercado',
+      amountMinor: 89_010,
+      accountId: base.cardId,
+      memberId: base.memberId,
+      occurredAt: '2026-08-05',
+      competenceDate: '2026-08-05',
+      idempotencyKey: key('despesa-cartao'),
+    });
+    expect(expense.statusCode).toBe(201);
+    expect(expense.json().transactionType).toBe('CARD_PURCHASE');
+
+    const statements = (
+      await get(base, `/households/${base.householdId}/card-statements?accountId=${base.cardId}`)
+    ).json();
+    // Compra em 05/08 fecha no ciclo do dia 10/08 e vence em 15/08.
+    expect(statements.items).toHaveLength(1);
+    expect(statements.items[0].totalMinor).toBe(89_010);
+    expect(statements.items[0].closingDate).toBe('2026-08-10');
+    expect(statements.items[0].dueDate).toBe('2026-08-15');
+    expect(await balance(base, base.cardId)).toBe(89_010);
+  });
+
+  it('baixa de conta prevista paga com cartão vira item de fatura', async () => {
+    const base = await setup();
+
+    const entry = (
+      await post(base, `/households/${base.householdId}/planned-entries`, {
+        nature: 'PAYABLE',
+        description: 'Energia elétrica',
+        originalAmountMinor: 31_240,
+        competenceDate: '2026-08-08',
+        dueDate: '2026-08-08',
+        memberId: base.memberId,
+        idempotencyKey: key('prevista-cartao'),
+      })
+    ).json().items[0];
+
+    const settled = await post(
+      base,
+      `/households/${base.householdId}/planned-entries/${entry.id}/settlements`,
+      {
+        principalAmountMinor: 31_240,
+        accountId: base.cardId,
+        settledAt: '2026-08-08',
+        idempotencyKey: key('baixa-cartao'),
+        expectedVersion: entry.version,
+      },
+    );
+    expect(settled.statusCode, settled.body).toBe(201);
+
+    const statements = (
+      await get(base, `/households/${base.householdId}/card-statements?accountId=${base.cardId}`)
+    ).json();
+    expect(statements.items).toHaveLength(1);
+    expect(statements.items[0].totalMinor).toBe(31_240);
+  });
+
+  it('a fatura aberta aparece nos próximos compromissos do dashboard', async () => {
+    const base = await setup();
+
+    await post(base, `/households/${base.householdId}/expenses`, {
+      description: 'Combustível',
+      amountMinor: 90_000,
+      accountId: base.cardId,
+      memberId: base.memberId,
+      occurredAt: '2026-08-05',
+      competenceDate: '2026-08-05',
+      idempotencyKey: key('despesa-dashboard'),
+    });
+
+    const dashboard = (
+      await get(
+        base,
+        `/households/${base.householdId}/dashboard?mode=ACCRUAL&from=2026-08-01&to=2026-08-31`,
+      )
+    ).json();
+
+    const fatura = dashboard.upcoming.find(
+      (item: { kind: string }) => item.kind === 'CARD_STATEMENT',
+    );
+    // Formato exato de COMPONENT-SPECS §Linha de fatura.
+    expect(fatura.description).toBe('Fatura · Cartão Azul •••• 4412');
+    expect(fatura.meta).toBe('fecha 10/08 · vence 15/08');
+    expect(fatura.amountMinor).toBe(90_000);
+  });
+});
