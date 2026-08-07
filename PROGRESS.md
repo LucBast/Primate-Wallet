@@ -58,6 +58,20 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **4a · Visão geral / 4b · Por categoria / 4c · Por membro (claro)** — batem
+  com os screenshots depois de sete correções: seletor de mês em pílula no
+  cabeçalho (era linha centralizada), o segmented "Geral | Categoria | Membro"
+  deu lugar à **lista de navegação** do design, KPI com rótulo em caixa alta e
+  seta ("↑ RECEITAS") e a comparação nomeando o mês ("+ 12% vs julho"), gráfico
+  de evolução em **barras verticais pareadas** com o mês corrente em brand
+  (eram barras horizontais empilhadas), título "Evolução — últimos 6 meses"
+  dentro do card, legenda com ■, e as barras da 4b com cores variadas dos
+  tokens em vez de tudo em expense. 4b e 4c viraram visões com cabeçalho
+  próprio, alcançadas pela lista.
+  **Faltam "Por conta e cartão" e "Parcelamentos e faturas"** na lista: os dois
+  destinos aparecem no screenshot da 4a, mas nem o SCREEN-SPECS nem os
+  screenshots descrevem essas telas — linha que não leva a lugar nenhum é pior
+  que linha ausente.
 - **3d · Atividade (claro)** — bate com o screenshot depois de cinco correções:
   título "Atividade", cabeçalho de dia "HOJE · SEX, 07/08", banner fechando a
   tela em vez de abrindo, com a copy verbatim, e — a mais séria — a linha

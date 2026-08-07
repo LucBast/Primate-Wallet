@@ -40,6 +40,15 @@ export function longMonthLabel(iso: string): string {
   return MONTH_LONG.format(atNoon(iso));
 }
 
+/**
+ * Rótulo curto do eixo do gráfico da 4a: "ago". Aceita tanto "2026-08" quanto
+ * uma data completa — a evolução vem por mês.
+ */
+export function shortMonthLabel(month: string): string {
+  const iso = month.length === 7 ? `${month}-01` : month;
+  return MONTH_SHORT.format(atNoon(iso)).replace('.', '');
+}
+
 /** Data curta das metas de status: "02/08". */
 export function dayMonth(iso: string): string {
   return DAY_MONTH.format(atNoon(iso));

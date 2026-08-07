@@ -11,7 +11,7 @@
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ScrollView, StyleSheet, View } from 'react-native';
 import type {
   CategoryBreakdown,
   Evolution,
@@ -23,26 +23,42 @@ import { addMonths, formatMoney, isoDate, minor, monthRange } from '@ff/domain';
 import { Banner } from '../../components/Banner';
 import { BottomSheet } from '../../components/BottomSheet';
 import { Button } from '../../components/Button';
-import { Card, SectionLabel } from '../../components/Card';
+import { Card, ListRow } from '../../components/Card';
 import { ChoiceChip, SegmentedControl } from '../../components/Chip';
+import { MonthPicker } from '../../components/MonthPicker';
 import { ProgressBar } from '../../components/ProgressBar';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { Toggle } from '../../components/Toggle';
 import { EmptyState, RecoverableError, SkeletonList } from '../../components/states';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
-import { icons, iconSize } from '../../design-system/icons';
 import { ApiRequestError } from '../../services/api-client';
+import { longMonthLabel, monthLabel, shortMonthLabel } from '../../services/dates';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
 import * as api from './report-api';
 
-const MONTH_FORMAT = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' });
-
 type ReportView = 'OVERVIEW' | 'CATEGORY' | 'MEMBER';
 
+/** O cabeçalho nomeia a visão aberta (4a → 4b/4c). */
+const VIEW_TITLE: Record<ReportView, string> = {
+  OVERVIEW: 'Relatórios',
+  CATEGORY: 'Por categoria',
+  MEMBER: 'Por membro',
+};
+
+/** Paleta das barras da 4b — só tons de `ProgressBar`, nenhuma cor nova. */
+const CATEGORY_TONES = ['expense', 'brand', 'warning', 'info', 'income', 'danger'] as const;
+
+/** Altura da barra do gráfico: o maior mês ocupa os 74dp medidos no design. */
+const CHART_HEIGHT = 74;
+function barHeight(valueMinor: number, maxMinor: number): number {
+  if (maxMinor <= 0 || valueMinor <= 0) return 2;
+  return Math.max(2, (valueMinor / maxMinor) * CHART_HEIGHT);
+}
+
 export function ReportsScreen({ onBack }: { readonly onBack: () => void }): React.JSX.Element {
-  const { colors, layout, spacing } = useTheme();
+  const { colors, layout, radius, spacing } = useTheme();
   const accessToken = useSessionStore((state) => state.accessToken);
   const household = useActiveHousehold();
 
@@ -110,10 +126,7 @@ export function ReportsScreen({ onBack }: { readonly onBack: () => void }): Reac
     }
   }, [accessToken, household, includeReversed, mode, range.end, range.start]);
 
-  const Prev = icons.anterior;
-  const Next = icons.proximo;
-
-  /** Escala do gráfico de evolução: o maior valor vira 100%. */
+  /** Escala do gráfico de evolução: o maior valor vira a barra cheia. */
   const maxMonth = useMemo(
     () =>
       Math.max(
@@ -123,9 +136,29 @@ export function ReportsScreen({ onBack }: { readonly onBack: () => void }): Reac
     [months],
   );
 
+  /** "+ 12% vs julho": variação do resultado sobre o mês anterior. */
+  const resultDelta = useMemo(() => {
+    if (summary === null) return null;
+    const anterior = summary.previousIncomeMinor - summary.previousExpenseMinor;
+    if (anterior === 0) return null;
+    return Math.trunc(((summary.resultMinor - anterior) / Math.abs(anterior)) * 100);
+  }, [summary]);
+
   return (
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
-      <ScreenHeader title="Relatórios" onBack={onBack} size="screen" />
+      {/* O seletor de mês fica no cabeçalho, como na 1d (screenshot 4a). */}
+      <ScreenHeader
+        title={VIEW_TITLE[view]}
+        onBack={view === 'OVERVIEW' ? onBack : () => setView('OVERVIEW')}
+        size="screen"
+        right={
+          <MonthPicker
+            label={monthLabel(range.start)}
+            onPrevious={() => setMonthAnchor((current) => addMonths(current, -1))}
+            onNext={() => setMonthAnchor((current) => addMonths(current, 1))}
+          />
+        }
+      />
 
       <ScrollView
         contentContainerStyle={[
@@ -144,43 +177,6 @@ export function ReportsScreen({ onBack }: { readonly onBack: () => void }): Reac
           onChange={setMode}
         />
 
-        <View style={[styles.monthRow, { marginTop: spacing.md }]}>
-          <Pressable
-            testID="mes-anterior"
-            accessibilityRole="button"
-            accessibilityLabel="Mês anterior"
-            hitSlop={10}
-            onPress={() => setMonthAnchor((current) => addMonths(current, -1))}
-          >
-            <Prev size={iconSize.row} color={colors.textSecondary} />
-          </Pressable>
-          <Text variant="section">
-            {MONTH_FORMAT.format(new Date(`${range.start}T12:00:00Z`)).replace('.', '')}
-          </Text>
-          <Pressable
-            testID="mes-proximo"
-            accessibilityRole="button"
-            accessibilityLabel="Próximo mês"
-            hitSlop={10}
-            onPress={() => setMonthAnchor((current) => addMonths(current, 1))}
-          >
-            <Next size={iconSize.row} color={colors.textSecondary} />
-          </Pressable>
-        </View>
-
-        <View style={{ marginTop: spacing.md }}>
-          <SegmentedControl
-            testID="segmento-visao"
-            options={[
-              { value: 'OVERVIEW', label: 'Geral' },
-              { value: 'CATEGORY', label: 'Categoria' },
-              { value: 'MEMBER', label: 'Membro' },
-            ]}
-            value={view}
-            onChange={setView}
-          />
-        </View>
-
         {error !== null ? (
           <View style={{ marginTop: spacing.lg }}>
             <RecoverableError
@@ -195,104 +191,149 @@ export function ReportsScreen({ onBack }: { readonly onBack: () => void }): Reac
           </View>
         ) : view === 'OVERVIEW' ? (
           <>
-            <View style={[styles.kpiRow, { marginTop: spacing.lg }]}>
+            {/* Três KPI com o rótulo em caixa alta e a seta, como no design. */}
+            <View style={[styles.kpiRow, { marginTop: spacing.md }]}>
               <Card style={styles.kpiCard} testID="kpi-receitas">
-                <Text variant="rowMeta" tone="secondary">
-                  Receitas
+                <Text variant="label" tone="income">
+                  ↑ Receitas
                 </Text>
-                <Text variant="moneyRow" tone="income">
+                <Text variant="moneyRow" tone="income" numberOfLines={1} adjustsFontSizeToFit>
                   {formatMoney(minor(summary.incomeMinor))}
                 </Text>
                 <Text variant="rowMeta" tone="secondary">
                   {`previsto ${formatMoney(minor(summary.plannedIncomeMinor))}`}
                 </Text>
-                <Text
-                  variant="rowMeta"
-                  tone={summary.incomeMinor >= summary.previousIncomeMinor ? 'income' : 'expense'}
-                >
-                  {`${summary.incomeMinor >= summary.previousIncomeMinor ? '↑' : '↓'} vs mês anterior`}
-                </Text>
               </Card>
 
               <Card style={styles.kpiCard} testID="kpi-despesas">
-                <Text variant="rowMeta" tone="secondary">
-                  Despesas
+                <Text variant="label" tone="expense">
+                  ↓ Despesas
                 </Text>
-                <Text variant="moneyRow" tone="expense">
+                <Text variant="moneyRow" tone="expense" numberOfLines={1} adjustsFontSizeToFit>
                   {formatMoney(minor(summary.expenseMinor))}
                 </Text>
                 <Text variant="rowMeta" tone="secondary">
                   {`previsto ${formatMoney(minor(summary.plannedExpenseMinor))}`}
                 </Text>
-                <Text
-                  variant="rowMeta"
-                  tone={summary.expenseMinor <= summary.previousExpenseMinor ? 'income' : 'expense'}
-                >
-                  {`${summary.expenseMinor <= summary.previousExpenseMinor ? '↓' : '↑'} vs mês anterior`}
-                </Text>
               </Card>
 
               <Card style={styles.kpiCard} testID="kpi-resultado">
-                <Text variant="rowMeta" tone="secondary">
+                <Text variant="label" tone="secondary">
                   Resultado
                 </Text>
-                <Text variant="moneyRow" tone={summary.resultMinor < 0 ? 'expense' : 'income'}>
+                <Text
+                  variant="moneyRow"
+                  tone={summary.resultMinor < 0 ? 'expense' : 'income'}
+                  numberOfLines={1}
+                  adjustsFontSizeToFit
+                >
                   {formatMoney(minor(summary.resultMinor), { signDisplay: 'always' })}
+                </Text>
+                {/* "+ 12% vs julho": a comparação é com o mês anterior, nomeado. */}
+                <Text
+                  variant="rowMeta"
+                  tone={resultDelta === null || resultDelta >= 0 ? 'income' : 'expense'}
+                >
+                  {resultDelta === null
+                    ? 'sem mês anterior'
+                    : `${resultDelta >= 0 ? '+' : '−'} ${Math.abs(resultDelta)}% vs ${longMonthLabel(addMonths(range.start, -1))}`}
                 </Text>
               </Card>
             </View>
 
-            <View style={{ marginTop: spacing.xl }}>
-              <SectionLabel>EVOLUÇÃO — ÚLTIMOS 6 MESES</SectionLabel>
+            {/* Gráfico de barras verticais pareadas, com o mês atual destacado. */}
+            <View style={{ marginTop: spacing.md }}>
               <Card testID="card-evolucao">
+                <Text variant="rowTitle">Evolução — últimos 6 meses</Text>
                 {(months?.months ?? []).length === 0 ? (
-                  <Text variant="rowMeta" tone="secondary">
+                  <Text variant="rowMeta" tone="secondary" style={{ marginTop: spacing.sm }}>
                     Ainda não há histórico suficiente.
                   </Text>
                 ) : (
-                  (months?.months ?? []).map((month) => (
-                    <View key={month.month} style={styles.evolutionRow}>
-                      <Text variant="rowMeta" tone="secondary" style={styles.evolutionLabel}>
-                        {month.month}
-                      </Text>
-                      <View style={styles.evolutionBars}>
-                        <ProgressBar
-                          percent={(month.incomeMinor * 100) / maxMonth}
-                          tone="income"
-                          height={5}
-                          accessibilityLabel={`Receitas de ${month.month}`}
-                        />
-                        <ProgressBar
-                          percent={(month.expenseMinor * 100) / maxMonth}
-                          tone="expense"
-                          height={5}
-                          accessibilityLabel={`Despesas de ${month.month}`}
-                        />
-                      </View>
-                      <Text variant="rowMeta" tone={month.resultMinor < 0 ? 'expense' : 'income'}>
-                        {formatMoney(minor(month.resultMinor), { signDisplay: 'always' })}
-                      </Text>
-                    </View>
-                  ))
+                  <View style={[styles.chart, { marginTop: spacing.lg }]}>
+                    {(months?.months ?? []).map((month, index, all) => {
+                      const atual = index === all.length - 1;
+                      return (
+                        <View key={month.month} style={styles.chartColumn}>
+                          <View style={styles.chartBars}>
+                            <View
+                              accessibilityRole="image"
+                              accessibilityLabel={`Receitas de ${shortMonthLabel(month.month)}: ${formatMoney(minor(month.incomeMinor))}`}
+                              style={[
+                                styles.bar,
+                                {
+                                  backgroundColor: atual ? colors.brand : colors.income,
+                                  borderTopLeftRadius: radius.sm / 2,
+                                  borderTopRightRadius: radius.sm / 2,
+                                  height: barHeight(month.incomeMinor, maxMonth),
+                                },
+                              ]}
+                            />
+                            <View
+                              accessibilityRole="image"
+                              accessibilityLabel={`Despesas de ${shortMonthLabel(month.month)}: ${formatMoney(minor(month.expenseMinor))}`}
+                              style={[
+                                styles.bar,
+                                {
+                                  backgroundColor: colors.expense,
+                                  borderTopLeftRadius: radius.sm / 2,
+                                  borderTopRightRadius: radius.sm / 2,
+                                  height: barHeight(month.expenseMinor, maxMonth),
+                                },
+                              ]}
+                            />
+                          </View>
+                          <Text
+                            variant="rowMeta"
+                            tone={atual ? 'primary' : 'secondary'}
+                            style={styles.chartLabel}
+                          >
+                            {shortMonthLabel(month.month)}
+                          </Text>
+                        </View>
+                      );
+                    })}
+                  </View>
                 )}
                 <View style={[styles.legend, { marginTop: spacing.sm }]}>
                   <Text variant="rowMeta" tone="income">
-                    ● Receitas
+                    ■ Receitas
                   </Text>
                   <Text variant="rowMeta" tone="expense">
-                    ● Despesas
+                    ■ Despesas
                   </Text>
                 </View>
               </Card>
             </View>
 
-            <View style={{ marginTop: spacing.xl }}>
-              <Button
-                testID="abrir-exportacao"
-                label="Exportar dados"
-                variant="secondary"
-                onPress={() => setExporting(true)}
-              />
+            {/* Lista de navegação do design, com os cinco destinos. */}
+            <View style={{ marginTop: spacing.md }}>
+              <Card padded={false} testID="card-navegacao">
+                <ListRow
+                  first
+                  title="Por categoria"
+                  showChevron
+                  testID="link-categoria"
+                  onPress={() => setView('CATEGORY')}
+                />
+                <ListRow
+                  title="Por membro"
+                  showChevron
+                  testID="link-membro"
+                  onPress={() => setView('MEMBER')}
+                />
+                {/* "Por conta e cartão" e "Parcelamentos e faturas" estão na
+                    lista do screenshot, mas nem o SCREEN-SPECS nem os
+                    screenshots descrevem essas telas. Linha que não leva a
+                    lugar nenhum é pior que linha ausente: ficam de fora até o
+                    pacote de design cobri-las (registrado no PROGRESS). */}
+                <ListRow
+                  title="Exportar dados"
+                  showChevron
+                  testID="abrir-exportacao"
+                  onPress={() => setExporting(true)}
+                />
+              </Card>
             </View>
           </>
         ) : view === 'CATEGORY' ? (
@@ -319,9 +360,11 @@ export function ReportsScreen({ onBack }: { readonly onBack: () => void }): Reac
                           {`${formatMoney(minor(item.amountMinor))} · ${Math.floor(item.percent)}%`}
                         </Text>
                       </View>
+                      {/* "cores variadas dos tokens" (SCREEN-SPECS §4b): cada
+                          categoria pega um tom da paleta, na ordem da lista. */}
                       <ProgressBar
                         percent={item.percent}
-                        tone="expense"
+                        tone={CATEGORY_TONES[index % CATEGORY_TONES.length] ?? 'expense'}
                         height={7}
                         accessibilityLabel={`${item.categoryName}: ${Math.floor(item.percent)}%`}
                       />
@@ -398,7 +441,7 @@ export function ReportsScreen({ onBack }: { readonly onBack: () => void }): Reac
         footer={
           <Button
             testID="gerar-csv"
-            label={`Gerar CSV · ${MONTH_FORMAT.format(new Date(`${range.start}T12:00:00Z`)).replace('.', '')}`}
+            label={`Gerar CSV · ${monthLabel(range.start)}`}
             onPress={handleExport}
           />
         }
@@ -446,17 +489,15 @@ export function ReportsScreen({ onBack }: { readonly onBack: () => void }): Reac
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { paddingTop: 4 },
-  monthRow: {
-    alignItems: 'center',
-    flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'center',
-  },
   kpiRow: { flexDirection: 'row', gap: 8 },
   kpiCard: { flex: 1, gap: 2 },
-  evolutionRow: { alignItems: 'center', flexDirection: 'row', gap: 8, paddingVertical: 5 },
-  evolutionLabel: { width: 58 },
-  evolutionBars: { flex: 1, gap: 3 },
+  // Gráfico de barras verticais: uma coluna por mês, duas barras por coluna.
+  chart: { flexDirection: 'row', gap: 10 },
+  chartColumn: { alignItems: 'center', flex: 1, gap: 6 },
+  chartBars: { alignItems: 'flex-end', flexDirection: 'row', gap: 3, height: CHART_HEIGHT },
+  // Largura fixa: com um mês só, barras em `flex` esticariam pela tela toda.
+  bar: { width: 18 },
+  chartLabel: { textAlign: 'center' },
   legend: { flexDirection: 'row', gap: 12 },
   breakdownRow: { gap: 5, paddingVertical: 11 },
   breakdownHeader: {
