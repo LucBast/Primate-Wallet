@@ -173,6 +173,47 @@ filho supervisionado. Telas 1b e 4a–4d.
   segurança, device testing, recovery, runbooks.
 - **Fase 12 — Publicação**: documentos legais, store assets, beta, release, smoke tests.
 
+## Defeito aberto — compra em cartão não entra na fatura
+
+**Gravidade: alta. Encontrado em 2026-08-07 durante o gate visual da 1b.**
+
+Uma despesa lançada em conta de cartão vira `CARD_PURCHASE`
+(`transaction/service.ts:282`), mas **nenhum `card_statement_items` é criado**. Só o
+endpoint dedicado `POST /card-purchases` (`card/service.ts:467-475`) anexa a compra a
+uma fatura, via `cycleForPurchase` + `ensureStatement`.
+
+Evidência no banco de desenvolvimento depois do `seed:demo`: 6 transações
+`CARD_PURCHASE` somando R$ 3.250,00, e `card_statements` e `card_statement_items`
+ambos VAZIOS. A dívida aparece em "Cartões em aberto" (que soma por
+`app.account_balance`), mas a fatura fica zerada — ou seja, a compra nunca é cobrada
+e não há como pagá-la pelo fluxo de fatura.
+
+Foi assim que o defeito apareceu: a linha "Fatura · Cartão Azul •••• 4412" não surgiu
+em "Próximos compromissos" da 1b. O serviço do dashboard JÁ monta essa linha
+(`report/service.ts:311-326`) e o contrato JÁ tem `kind: 'CARD_STATEMENT'` — não havia
+fatura nenhuma para listar.
+
+Suspeito do mesmo problema em `planning/settlement-service.ts:206`, que também produz
+`CARD_PURCHASE` ao dar baixa pagando com cartão. Não confirmado.
+
+**Correção:** exportar `ensureStatement` de `card/service.ts` (hoje é privada, linha 83)
+e chamá-la nos dois outros caminhos que criam `CARD_PURCHASE`, com teste que prove que
+uma despesa em cartão aparece na fatura do ciclo certo.
+
+## Formato da linha de fatura — divergente do spec
+
+`report/service.ts:319` monta `Fatura · Cartão Azul • • • • 4412` (bullets separados por
+espaço) e o meta só com `fecha 10/08`. O COMPONENT-SPECS §Linha de fatura, publicado em
+CLARIFICATIONS-01, pede `•••• 4412` (quatro U+2022 colados, um espaço antes dos dígitos)
+e meta `fecha 10/08 · vence 15/08`. Corrigir junto com o defeito acima — sem fatura no
+banco, não dá para verificar a linha na tela.
+
+## Ícones por categoria — pendente
+
+O mapa oficial está em COMPONENT-SPECS §Ícones por categoria. O contrato do dashboard
+manda a categoria no campo `meta` (`report/service.ts:308`), que é texto de exibição;
+o certo é um campo `categoryName` próprio antes de ligar o mapa na UI.
+
 ## Testes falhando
 
 - Nenhum. Total: **241 testes** (domain 62, validation 7, api-contracts 5, api 147,
