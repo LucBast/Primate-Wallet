@@ -20,6 +20,7 @@ import {
   Delete,
   Ellipsis,
   Eye,
+  Pencil,
   EyeOff,
   House,
   Diff,
@@ -52,6 +53,8 @@ export const icons = {
   // Apoio (⌕ ⌫ ⚡ 🔔 ✓)
   buscar: Search,
   confirmado: Check,
+  // Lápis de "editar" no cabeçalho da 2c e da 3b.
+  editar: Pencil,
   apagar: Delete,
   energia: Zap,
   notificacao: Bell,

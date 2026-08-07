@@ -14,41 +14,82 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
-import type { Account, AccountStatementRow } from '@ff/api-contracts';
-import { addMonths, formatDate, formatMoney, isoDate, minor, monthRange } from '@ff/domain';
-import { Banner } from '../../components/Banner';
+import type { Account, AccountStatementRow, VisibilityScope } from '@ff/api-contracts';
+import { addMonths, formatMoney, isoDate, minor, monthRange } from '@ff/domain';
 import { Button } from '../../components/Button';
-import { Card, ListRow, SectionLabel } from '../../components/Card';
+import { Card, IconBadge, ListRow } from '../../components/Card';
+import { MonthPicker } from '../../components/MonthPicker';
 import { ScreenHeader } from '../../components/ScreenHeader';
 import { EmptyState, RecoverableError, SkeletonList } from '../../components/states';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { icons, iconSize } from '../../design-system/icons';
 import { ApiRequestError } from '../../services/api-client';
+import { dayMonth, monthLabel } from '../../services/dates';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
 import * as api from './account-api';
 import { AdjustBalanceSheet } from './AdjustBalanceSheet';
 
-/** Rótulos pt-BR dos tipos de movimentação que aparecem no extrato. */
-const TYPE_LABEL: Record<string, string> = {
-  EXPENSE: 'Despesa',
-  INCOME: 'Receita',
-  TRANSFER: 'Transferência',
-  CARD_PURCHASE: 'Compra no cartão',
-  CARD_PAYMENT: 'Pagamento de fatura',
-  ADJUSTMENT: 'Ajuste de saldo',
-  REFUND: 'Reembolso',
-  REVERSAL: 'Estorno',
+/** Selo de visibilidade no subtítulo, igual ao da 2a. */
+const VISIBILITY_LABEL: Record<VisibilityScope, string> = {
+  HOUSEHOLD: 'Família',
+  ADULTS_ONLY: 'Só adultos',
+  SELECTED_MEMBERS: 'Restrita',
+  OWNER_ONLY: 'Só eu',
 };
 
-const MONTH_FORMAT = new Intl.DateTimeFormat('pt-BR', { month: 'short', year: 'numeric' });
+const VISIBILITY_TONE: Record<VisibilityScope, 'brand' | 'warning' | 'pending'> = {
+  HOUSEHOLD: 'brand',
+  ADULTS_ONLY: 'warning',
+  SELECTED_MEMBERS: 'pending',
+  OWNER_ONLY: 'pending',
+};
+
+/**
+ * Título da linha do extrato, com a copy do screenshot: a transferência nomeia
+ * o destino e a baixa se identifica como tal.
+ */
+function statementTitle(row: AccountStatementRow): string {
+  if (row.transactionType === 'TRANSFER' && row.destinationAccountName !== null) {
+    return `Transferência → ${row.destinationAccountName}`;
+  }
+  if (row.transactionType === 'ADJUSTMENT') return 'Ajuste de saldo';
+  return row.description;
+}
+
+/** Ícone da natureza, como na 1g (COMPONENT-SPECS §Ícones). */
+function statementVisual(
+  type: string,
+  colors: ReturnType<typeof useTheme>['colors'],
+): { Icon: (typeof icons)[keyof typeof icons]; color: string; background: string } {
+  switch (type) {
+    case 'INCOME':
+    case 'REFUND':
+      return { Icon: icons.receita, color: colors.income, background: colors.incomeSoft };
+    case 'TRANSFER':
+      return {
+        Icon: icons.transferencia,
+        color: colors.textTertiary,
+        background: colors.chipNeutral,
+      };
+    case 'CARD_PAYMENT':
+      return { Icon: icons.cartao, color: colors.info, background: colors.infoSoft };
+    case 'ADJUSTMENT':
+      return { Icon: icons.ajuste, color: colors.textTertiary, background: colors.chipNeutral };
+    case 'REVERSAL':
+      return { Icon: icons.estorno, color: colors.textTertiary, background: colors.chipNeutral };
+    default:
+      return { Icon: icons.despesa, color: colors.expense, background: colors.expenseSoft };
+  }
+}
 
 export type AccountDetailScreenProps = {
   readonly account: Account;
   readonly onBack: () => void;
   readonly onTransfer: () => void;
   readonly onPermissions: () => void;
+  readonly onEdit?: (() => void) | undefined;
 };
 
 export function AccountDetailScreen({
@@ -56,6 +97,7 @@ export function AccountDetailScreen({
   onBack,
   onTransfer,
   onPermissions,
+  onEdit,
 }: AccountDetailScreenProps): React.JSX.Element {
   const { colors, layout, radius, spacing } = useTheme();
   const accessToken = useSessionStore((state) => state.accessToken);
@@ -93,16 +135,41 @@ export function AccountDetailScreen({
     void load();
   }, [load]);
 
-  const Prev = icons.anterior;
-  const Next = icons.proximo;
+  const Editar = icons.editar;
 
   return (
     <View style={[styles.flex, { backgroundColor: colors.surface }]}>
+      {/* "Banco Andar · Bruno · Família", com o selo colorido (screenshot 2c). */}
       <ScreenHeader
         title={account.name}
-        subtitle={account.institutionName ?? undefined}
+        subtitle={
+          <Text variant="rowMeta" tone="secondary">
+            {[account.institutionName, account.primaryMemberName]
+              .filter((part): part is string => Boolean(part))
+              .map((part) => `${part} · `)
+              .join('')}
+            <Text variant="rowMeta" tone={VISIBILITY_TONE[account.visibilityScope]}>
+              {VISIBILITY_LABEL[account.visibilityScope]}
+            </Text>
+          </Text>
+        }
         onBack={onBack}
         size="screen"
+        // O lápis só aparece quando há para onde ir: botão que não faz nada é
+        // pior que botão ausente.
+        right={
+          onEdit === undefined ? undefined : (
+            <Pressable
+              testID="editar-conta"
+              accessibilityRole="button"
+              accessibilityLabel="Editar conta"
+              hitSlop={10}
+              onPress={onEdit}
+            >
+              <Editar size={iconSize.action} color={colors.textPrimary} />
+            </Pressable>
+          )
+        }
       />
 
       <ScrollView
@@ -128,16 +195,16 @@ export function AccountDetailScreen({
           </Text>
         </View>
 
-        {/* 3. Ações */}
+        {/* 3. Ações — os três botões trazem ícone no screenshot. */}
         <View style={[styles.actions, { marginTop: spacing.md }]}>
           <View style={styles.action}>
-            <Button label="Transferir" variant="secondary" size="sm" onPress={onTransfer} />
+            <Button label="⇄ Transferir" variant="secondary" size="sm" onPress={onTransfer} />
           </View>
           {canAdjust ? (
             <View style={styles.action}>
               <Button
                 testID="ajustar-saldo"
-                label="Ajustar saldo"
+                label="± Ajustar saldo"
                 variant="secondary"
                 size="sm"
                 onPress={() => setAdjusting(true)}
@@ -149,29 +216,14 @@ export function AccountDetailScreen({
           </View>
         </View>
 
-        {/* 4. Extrato */}
-        <View style={[styles.monthRow, { marginTop: spacing.xl }]}>
-          <Pressable
-            testID="mes-anterior"
-            accessibilityRole="button"
-            accessibilityLabel="Mês anterior"
-            hitSlop={10}
-            onPress={() => setMonthAnchor((current) => addMonths(current, -1))}
-          >
-            <Prev size={iconSize.row} color={colors.textSecondary} />
-          </Pressable>
-          <Text variant="section">
-            {MONTH_FORMAT.format(new Date(`${range.start}T12:00:00Z`)).replace('.', '')}
-          </Text>
-          <Pressable
-            testID="mes-proximo"
-            accessibilityRole="button"
-            accessibilityLabel="Próximo mês"
-            hitSlop={10}
-            onPress={() => setMonthAnchor((current) => addMonths(current, 1))}
-          >
-            <Next size={iconSize.row} color={colors.textSecondary} />
-          </Pressable>
+        {/* 4. Extrato: título à esquerda, seletor de mês à direita. */}
+        <View style={[styles.extratoHeader, { marginTop: spacing.lg }]}>
+          <Text variant="section">Extrato</Text>
+          <MonthPicker
+            label={monthLabel(range.start)}
+            onPrevious={() => setMonthAnchor((current) => addMonths(current, -1))}
+            onNext={() => setMonthAnchor((current) => addMonths(current, 1))}
+          />
         </View>
 
         <View style={{ marginTop: spacing.sm }}>
@@ -186,70 +238,79 @@ export function AccountDetailScreen({
             />
           ) : (
             <Card padded={false} testID="card-extrato">
-              {rows.map((row, index) => (
-                <ListRow
-                  key={row.id}
-                  first={index === 0}
-                  testID={`extrato-${row.id}`}
-                  title={row.description}
-                  meta={[
-                    TYPE_LABEL[row.transactionType] ?? row.transactionType,
-                    row.memberName,
-                    formatDate(isoDate(row.occurredAt.slice(0, 10))),
-                    row.reason,
-                  ]
-                    .filter((part): part is string => Boolean(part))
-                    .join(' · ')}
-                  right={
-                    <Text
-                      variant="moneyRow"
-                      tone={row.signedAmountMinor < 0 ? 'expense' : 'income'}
-                      style={row.status === 'REVERSED' ? styles.reversed : undefined}
-                    >
-                      {formatMoney(minor(row.signedAmountMinor), { signDisplay: 'always' })}
-                    </Text>
-                  }
-                />
-              ))}
+              {rows.map((row, index) => {
+                const visual = statementVisual(row.transactionType, colors);
+                // Transferência muda de conta, não é despesa nem receita: fica
+                // neutra, como no screenshot.
+                const neutro = row.transactionType === 'TRANSFER';
+                return (
+                  <ListRow
+                    key={row.id}
+                    first={index === 0}
+                    testID={`extrato-${row.id}`}
+                    title={statementTitle(row)}
+                    titleStyle={
+                      row.status === 'REVERSED'
+                        ? { ...styles.reversed, color: colors.textSecondary }
+                        : undefined
+                    }
+                    left={
+                      <IconBadge background={visual.background}>
+                        <visual.Icon size={iconSize.row} color={visual.color} />
+                      </IconBadge>
+                    }
+                    meta={[
+                      dayMonth(row.occurredAt.slice(0, 10)),
+                      row.reason === null ? null : `motivo: ${row.reason}`,
+                      row.createdByName === null ? null : `por ${row.createdByName}`,
+                    ]
+                      .filter((part): part is string => Boolean(part))
+                      .join(' · ')}
+                    right={
+                      <Text
+                        variant="moneyRow"
+                        tone={
+                          neutro ? 'tertiary' : row.signedAmountMinor < 0 ? 'expense' : 'income'
+                        }
+                      >
+                        {formatMoney(minor(row.signedAmountMinor), { signDisplay: 'always' })}
+                      </Text>
+                    }
+                  />
+                );
+              })}
             </Card>
           )}
         </View>
 
-        {/* 5. Arquivamento */}
-        <View style={{ marginTop: spacing.xxl }}>
-          <Banner
-            kind="warning"
-            testID="banner-arquivar"
-            message="Arquivar a conta impede novos usos, mantém o histórico e preserva os relatórios antigos."
-          />
-          {account.archivedAt === null ? (
-            <View style={{ marginTop: spacing.md }}>
-              <Button
-                testID="arquivar-conta"
-                label="Arquivar conta"
-                variant="destructive"
-                onPress={async () => {
-                  if (!accessToken || !household) return;
-                  setAccount(await api.archiveAccount(accessToken, household.id, account.id, true));
-                }}
-              />
-            </View>
-          ) : (
-            <View style={{ marginTop: spacing.md }}>
-              <SectionLabel>CONTA ARQUIVADA</SectionLabel>
-              <Button
-                testID="desarquivar-conta"
-                label="Reativar conta"
-                variant="secondary"
-                onPress={async () => {
-                  if (!accessToken || !household) return;
-                  setAccount(
-                    await api.archiveAccount(accessToken, household.id, account.id, false),
-                  );
-                }}
-              />
-            </View>
-          )}
+        {/* 5. Arquivamento: uma linha só, com a ação em danger à direita. */}
+        <View style={[styles.archiveRow, { marginTop: spacing.xl }]}>
+          <Text variant="rowMeta" tone="secondary" style={styles.archiveText}>
+            {account.archivedAt === null
+              ? 'Arquivar conta impede novos usos, mantém histórico.'
+              : 'Conta arquivada: não recebe novos lançamentos, o histórico continua.'}
+          </Text>
+          <Pressable
+            testID={account.archivedAt === null ? 'arquivar-conta' : 'desarquivar-conta'}
+            accessibilityRole="button"
+            accessibilityLabel={account.archivedAt === null ? 'Arquivar conta' : 'Reativar conta'}
+            hitSlop={8}
+            onPress={async () => {
+              if (!accessToken || !household) return;
+              setAccount(
+                await api.archiveAccount(
+                  accessToken,
+                  household.id,
+                  account.id,
+                  account.archivedAt === null,
+                ),
+              );
+            }}
+          >
+            <Text variant="rowMeta" tone={account.archivedAt === null ? 'danger' : 'brand'}>
+              {account.archivedAt === null ? 'Arquivar' : 'Reativar'}
+            </Text>
+          </Pressable>
         </View>
       </ScrollView>
 
@@ -273,11 +334,18 @@ const styles = StyleSheet.create({
   balanceCard: { gap: 2, paddingHorizontal: 18, paddingVertical: 14 },
   actions: { flexDirection: 'row', gap: 8 },
   action: { flex: 1 },
-  monthRow: {
+  extratoHeader: {
+    alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  archiveRow: {
     alignItems: 'center',
     flexDirection: 'row',
     gap: 12,
-    justifyContent: 'center',
+    justifyContent: 'space-between',
   },
+  archiveText: { flex: 1 },
   reversed: { textDecorationLine: 'line-through' },
 });

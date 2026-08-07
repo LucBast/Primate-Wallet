@@ -260,5 +260,8 @@ export const accountStatementRowSchema = z.object({
   counterpartyName: z.string().nullable(),
   reason: z.string().nullable(),
   notes: descriptionSchema.nullable(),
+  /** "por Bruno" e "Transferência → Poupança" do extrato da 2c. */
+  createdByName: z.string().nullable(),
+  destinationAccountName: z.string().nullable(),
 });
 export type AccountStatementRow = z.infer<typeof accountStatementRowSchema>;

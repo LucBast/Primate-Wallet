@@ -610,6 +610,8 @@ export function createAccountService(deps: { readonly db: Database }) {
             counterparty_name: string | null;
             reason: string | null;
             notes: string | null;
+            created_by_name: string | null;
+            destination_account_name: string | null;
           }>(
             `SELECT t.id, t.transaction_type, t.description, t.amount_minor,
                     CASE
@@ -621,11 +623,15 @@ export function createAccountService(deps: { readonly db: Database }) {
                     END AS signed_amount_minor,
                     t.occurred_at, t.competence_date, t.status,
                     m.display_name AS member_name, c.name AS category_name,
-                    cp.name AS counterparty_name, t.reason, t.notes
+                    cp.name AS counterparty_name, t.reason, t.notes,
+                    -- "por Bruno" e "Transferência → Poupança" no extrato (2c).
+                    p.name AS created_by_name, d.name AS destination_account_name
                FROM transactions t
                LEFT JOIN household_members m ON m.id = t.member_id
                LEFT JOIN categories c ON c.id = t.category_id
                LEFT JOIN counterparties cp ON cp.id = t.counterparty_id
+               LEFT JOIN profiles p ON p.id = t.created_by
+               LEFT JOIN accounts d ON d.id = t.destination_account_id
               WHERE t.household_id = $1
                 AND (t.account_id = $2 OR t.destination_account_id = $2)
                 AND t.occurred_at >= $3::date
@@ -648,6 +654,8 @@ export function createAccountService(deps: { readonly db: Database }) {
             counterpartyName: row.counterparty_name,
             reason: row.reason,
             notes: row.notes,
+            createdByName: row.created_by_name,
+            destinationAccountName: row.destination_account_name,
           }));
         },
         { readOnly: true },

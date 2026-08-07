@@ -58,6 +58,13 @@ arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
   divergências abaixo, com fatura fechada, compra parcelada, compra estornada e
   pagamento parcial na tela.
 
+- **2c · Detalhe da conta (claro)** — bate com o screenshot depois de seis
+  correções: subtítulo com titular e selo de visibilidade colorido, lápis de
+  editar no cabeçalho, ícones nos três botões de ação, "Extrato" à esquerda com
+  o seletor de mês em pílula à direita, linhas do extrato com ícone da natureza
+  e meta "06/08 · motivo: … · por Ana" (transferência neutra, nomeando o
+  destino), e o rodapé de arquivamento numa linha só com a ação em danger. O
+  autor e a conta de destino precisaram entrar no contrato do extrato.
 - **2b · Nova conta (claro)** — bate com o screenshot depois de sete correções:
   título fixo "Nova conta" (o formulário é um só; quem muda de nome é o CTA),
   Instituição e Titular dividindo a linha, Titular e "Quem pode ver e usar"
