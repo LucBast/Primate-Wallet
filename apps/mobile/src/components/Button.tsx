@@ -12,6 +12,7 @@ import React, { useCallback, useRef } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
+import { fixedColors } from '../design-system/spec-values';
 import { secondaryBorderWidth } from '../design-system/spec-values';
 
 export type ButtonVariant = 'primary' | 'secondary' | 'destructive';
@@ -91,7 +92,7 @@ export function Button({
     >
       {loading ? (
         <ActivityIndicator
-          color={variant === 'primary' ? colors.surfaceElevated : colors.brand}
+          color={variant === 'primary' ? fixedColors.onBrand : colors.brand}
           accessibilityLabel="Carregando"
         />
       ) : (

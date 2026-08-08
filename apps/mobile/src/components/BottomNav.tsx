@@ -17,6 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../design-system/theme';
 import { icons, iconSize } from '../design-system/icons';
 import {
+  fixedColors,
   navAddGlyphSize,
   navAddOffset,
   navAddShadow,
@@ -121,7 +122,8 @@ export function BottomNav({ active, onSelect, onAdd }: BottomNavProps): React.JS
               : { elevation: navAddShadow.androidElevation },
           ]}
         >
-          <AddIcon size={navAddGlyphSize} color={colors.surfaceElevated} strokeWidth={2.5} />
+          {/* "+" branco sobre o círculo brand, nos dois temas. */}
+          <AddIcon size={navAddGlyphSize} color={fixedColors.onBrand} strokeWidth={2.5} />
         </Pressable>
       </View>
 

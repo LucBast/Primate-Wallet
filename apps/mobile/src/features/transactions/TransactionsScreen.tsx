@@ -24,6 +24,7 @@ import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
 import { icons, iconSize } from '../../design-system/icons';
 import { font, type as typeTokens } from '../../design-system/tokens';
+import { fixedColors } from '../../design-system/spec-values';
 import { ApiRequestError } from '../../services/api-client';
 import { dayHeader, longMonthLabel } from '../../services/dates';
 import { useSessionStore } from '../auth/session-store';
@@ -437,7 +438,8 @@ function FilterPill({
         },
       ]}
     >
-      <Text variant="chip" style={{ color: active ? colors.surfaceElevated : colors.textPrimary }}>
+      {/* Filtro ativo: branco sobre brand, nos dois temas. */}
+      <Text variant="chip" style={{ color: active ? fixedColors.onBrand : colors.textPrimary }}>
         {active ? `${value} ✕` : label}
       </Text>
     </Pressable>

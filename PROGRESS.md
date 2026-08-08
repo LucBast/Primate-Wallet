@@ -32,6 +32,26 @@ Os testes de integração rodam em `family_finance_test`, criado por
 `npm run db:test:prepare --workspace @ff/api`. Antes disso, o TRUNCATE de cada
 arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
 
+### Tema escuro — o defeito que a varredura estática pegou
+
+Antes de capturar qualquer tela, uma varredura estática confirmou o que o
+CLAUDE.md exige: **nenhum literal de cor fora de `tokens.ts`**, e `light` só é
+importado em `theme.tsx`. Mas ela também revelou um defeito repetido em **sete
+lugares**: "branco sobre cor" tinha sido escrito como `colors.surfaceElevated`,
+que no tema escuro é #201F1D — quase preto.
+
+No claro ninguém notava, porque lá `surfaceElevated` é #FFFFFF. No escuro,
+o "Saldo consolidado" ficava quase preto sobre o verde, o "+" da BottomNav
+sumia no círculo, o texto do botão primário desaparecia, e o scrim do
+BottomSheet virava um véu BRANCO sobre a tela.
+
+A correção é `spec-values.fixedColors`: duas cores que **não trocam com o
+tema**, porque não descrevem a superfície do app e sim o que está por baixo
+delas — `onBrand` (branco sobre o card brand, medido em `5b-tema-escuro.png`:
+#FFFFFF sobre #1E8A7D) e `scrim` (escuro nos dois temas). Corrigidos: `Text`
+tone onBrand, `Button`, `BottomNav`, `Chip`, `StatusChip` onCard, `Avatar` e o
+filtro ativo da 1g.
+
 ### Telas aprovadas no gate
 
 - **6a · Login** — bate com o screenshot depois das correções abaixo.

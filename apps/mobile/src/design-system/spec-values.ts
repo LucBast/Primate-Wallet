@@ -11,7 +11,25 @@
  * a citação da especificação que o originou. Registrado em docs/21-DECISIONS.md.
  */
 
-import { font } from './tokens';
+import { font, light } from './tokens';
+
+/**
+ * As duas cores que NÃO trocam com o tema.
+ *
+ * Não descrevem a superfície do app, e sim o que está POR BAIXO delas — por
+ * isso ficam iguais no claro e no escuro, como `cardNavy` e `cardWine`:
+ *
+ *  - `onBrand`: texto sobre o card brand. Medido em `5b-tema-escuro.png`, o
+ *    "Saldo consolidado" é #FFFFFF sobre #1E8A7D. Usar `surfaceElevated` do
+ *    tema escuro poria quase-preto sobre verde escuro.
+ *  - `scrim`: o véu do BottomSheet escurece a tela que está atrás; no tema
+ *    escuro ele continua escuro. COMPONENT-SPECS §BottomSheet pede
+ *    rgba(28,27,26,0.45), que é o `textPrimary` do tema CLARO a 45%.
+ */
+export const fixedColors = {
+  onBrand: light.surfaceElevated,
+  scrim: light.textPrimary,
+} as const;
 
 /** COMPONENT-SPECS §BottomNav: "4 itens (ícone 17 + label 10 ...)". */
 export const navLabel = {

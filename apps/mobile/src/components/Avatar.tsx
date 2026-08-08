@@ -10,7 +10,7 @@ import React from 'react';
 import { StyleSheet, Text as RNText, View } from 'react-native';
 import { useTheme } from '../design-system/theme';
 import { font } from '../design-system/tokens';
-import { withAlpha } from '../design-system/spec-values';
+import { fixedColors, withAlpha } from '../design-system/spec-values';
 
 export type AvatarSize = 'sm' | 'md' | 'lg';
 
@@ -85,7 +85,8 @@ export function Avatar({
     ? colors.textTertiary
     : tone === 'soft'
       ? semantic
-      : colors.surfaceElevated;
+      : // Inicial branca sobre o círculo colorido, nos dois temas.
+        fixedColors.onBrand;
 
   return (
     <View

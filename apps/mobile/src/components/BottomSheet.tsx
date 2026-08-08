@@ -19,6 +19,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
+import { fixedColors } from '../design-system/spec-values';
 
 export type BottomSheetProps = {
   readonly visible: boolean;
@@ -53,12 +54,14 @@ export function BottomSheet({
 
   const conteudo = (
     <View style={styles.root} testID={testID}>
-      {/* Scrim rgba(28,27,26,0.45) = token textPrimary do tema claro a 45%. */}
+      {/* Scrim rgba(28,27,26,0.45): escuro nos DOIS temas — ele escurece a
+          tela que está atrás, e no escuro usar `textPrimary` daria um véu
+          branco (spec-values.fixedColors). */}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Fechar"
         onPress={onClose}
-        style={[styles.scrim, { backgroundColor: colors.textPrimary }]}
+        style={[styles.scrim, { backgroundColor: fixedColors.scrim }]}
       />
 
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>

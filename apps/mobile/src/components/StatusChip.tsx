@@ -12,7 +12,7 @@ import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
-import { withAlpha } from '../design-system/spec-values';
+import { fixedColors, withAlpha } from '../design-system/spec-values';
 
 export type StatusKind =
   | 'aberto'
@@ -61,7 +61,8 @@ export function StatusChip({ status, detail, onCard = false }: StatusChipProps):
   };
 
   const { background, foreground } = onCard
-    ? { background: withAlpha(colors.surfaceElevated, 0.16), foreground: colors.surfaceElevated }
+    ? // Sobre o card escuro da fatura o chip é branco nos dois temas.
+      { background: withAlpha(fixedColors.onBrand, 0.16), foreground: fixedColors.onBrand }
     : palette[status];
   // ◌ para sincronização pendente; ● para todos os demais estados.
   const marker = status === 'aguardandoSincronizacao' ? '◌' : '●';

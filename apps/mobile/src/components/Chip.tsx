@@ -12,6 +12,7 @@ import React from 'react';
 import { Pressable, StyleSheet, View, type ViewStyle } from 'react-native';
 import { Text } from '../design-system/Text';
 import { useTheme } from '../design-system/theme';
+import { fixedColors } from '../design-system/spec-values';
 
 export type SelectorChipProps = {
   readonly label: string;
@@ -98,7 +99,8 @@ export function ChoiceChip({
     >
       <Text
         variant="chip"
-        style={{ color: selected ? colors.surfaceElevated : colors.textPrimary }}
+        // Selecionado: branco sobre a cor semântica, nos dois temas.
+        style={{ color: selected ? fixedColors.onBrand : colors.textPrimary }}
       >
         {selected ? `✓ ${label}` : label}
       </Text>

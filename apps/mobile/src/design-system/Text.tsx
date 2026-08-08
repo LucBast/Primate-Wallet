@@ -13,6 +13,7 @@ import React from 'react';
 import { Text as RNText, type StyleProp, type TextProps, type TextStyle } from 'react-native';
 import { useTheme } from './theme';
 import { type as typeTokens } from './tokens';
+import { fixedColors } from './spec-values';
 
 export type TextVariant = keyof typeof typeTokens;
 
@@ -57,7 +58,9 @@ export function Text({
     warning: colors.warning,
     info: colors.info,
     pending: colors.pending,
-    onBrand: colors.surfaceElevated,
+    // Branco nos dois temas: quem está por baixo é o card brand, não a
+    // superfície do tema (spec-values.fixedColors).
+    onBrand: fixedColors.onBrand,
   };
 
   return (
