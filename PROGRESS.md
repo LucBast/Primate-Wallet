@@ -52,6 +52,12 @@ delas — `onBrand` (branco sobre o card brand, medido em `5b-tema-escuro.png`:
 tone onBrand, `Button`, `BottomNav`, `Chip`, `StatusChip` onCard, `Avatar` e o
 filtro ativo da 1g.
 
+A captura da 1f no escuro achou o oitavo: a **barra de limite** do card da
+fatura usava `colors.surface` como preenchimento — branco no claro, quase
+preto no escuro, sumindo dentro do cardNavy. Também virou `fixedColors`.
+
+Reconferidas no escuro depois das correções: 1b, 1f e 2a.
+
 ### Telas aprovadas no gate
 
 - **6a · Login** — bate com o screenshot depois das correções abaixo.

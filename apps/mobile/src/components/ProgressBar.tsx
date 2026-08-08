@@ -9,7 +9,7 @@
 import React from 'react';
 import { StyleSheet, View } from 'react-native';
 import { useTheme } from '../design-system/theme';
-import { withAlpha } from '../design-system/spec-values';
+import { fixedColors, withAlpha } from '../design-system/spec-values';
 
 export type ProgressTone =
   | 'warning'
@@ -51,14 +51,16 @@ export function ProgressBar({
     brand: colors.brand,
     info: colors.info,
     statement: colors.toastAction,
-    onCard: colors.surface,
+    // Barra de limite sobre o card escuro: branca nos DOIS temas. Usar
+    // `surface` daria quase-preto sobre o navy no tema escuro.
+    onCard: fixedColors.onBrand,
   }[tone];
 
   // Trilho sobre o card escuro: branco a 18%, medido em 1f-fatura.png.
   const track = {
     neutral: colors.chipNeutral,
     onBrand: colors.toastAction,
-    onCard: withAlpha(colors.surfaceElevated, 0.18),
+    onCard: withAlpha(fixedColors.onBrand, 0.18),
   }[trackTone];
 
   return (
