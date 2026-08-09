@@ -10,5 +10,13 @@ module.exports = {
     // Sem ele o Metro falha o bundle inteiro com SyntaxError em node_modules/zod.
     // Ver docs/21-DECISIONS.md D-041.
     '@babel/plugin-transform-export-namespace-from',
+    // Endereço da API embutido no bundle, para o build de validação em aparelho
+    // real apontar para a máquina de desenvolvimento na rede local.
+    //
+    // `include` é uma lista fechada de propósito: sem ela, o plugin inlinaria
+    // QUALQUER `process.env.X` que aparecesse no código, e um dia alguém
+    // escreveria `process.env.JWT_SECRET` num arquivo do app sem perceber que
+    // isso o assaria dentro de um APK distribuível.
+    ['transform-inline-environment-variables', { include: ['FF_API_URL'] }],
   ],
 };

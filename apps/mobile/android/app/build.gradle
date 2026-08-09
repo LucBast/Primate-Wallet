@@ -17,6 +17,12 @@ react {
     codegenDir = file("../../../../node_modules/@react-native/codegen")
     cliFile = file("../../../../node_modules/@react-native-community/cli/build/bin.js")
 
+    //   O React Native 0.86 mudou o hermesc de `react-native/sdks/hermesc` para
+    //   o pacote `hermes-compiler`. O caminho padrão do plugin aponta para o
+    //   lugar antigo, e o bundle do build de aparelho falha com "Couldn't
+    //   determine Hermesc location". `%OS-BIN%` é substituído pelo plugin.
+    hermesCommand = file("../../../../node_modules/hermes-compiler/hermesc/%OS-BIN%/hermesc").getAbsolutePath()
+
     /* Variants */
     //   The list of variants to that are debuggable. For those we're going to
     //   skip the bundling of the JS bundle and the assets. Default is "debug", "debugOptimized".
@@ -96,6 +102,31 @@ android {
     buildTypes {
         debug {
             signingConfig signingConfigs.debug
+        }
+        /**
+         * Build de VALIDAÇÃO em aparelho real.
+         *
+         * Existe como tipo próprio, e não como um `debug` remendado, por duas
+         * razões que se contradizem em qualquer outro arranjo:
+         *
+         *  - precisa do JS EMBUTIDO e de `debuggable false`, senão o app tenta
+         *    o Metro antes de cair no bundle e trava numa tela cinza no
+         *    telefone, onde `10.0.2.2` não significa nada;
+         *  - precisa aceitar TEXTO CLARO, porque a API de desenvolvimento fala
+         *    HTTP na rede local — e um `release` de verdade bloqueia isso antes
+         *    da primeira tela.
+         *
+         * Deixar o `release` permitir texto claro para atender a segunda seria
+         * carregar a permissão até a loja. Aqui ela fica presa a um build cujo
+         * nome diz o que ele é.
+         */
+        validation {
+            initWith release
+            matchingFallbacks = ['release']
+            signingConfig signingConfigs.debug
+            debuggable false
+            minifyEnabled false
+            manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
             // Caution! In production, you need to generate your own keystore file.

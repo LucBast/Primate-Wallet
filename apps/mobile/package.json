@@ -8,7 +8,8 @@
     "start": "react-native start",
     "typecheck": "tsc --noEmit",
     "test": "tsc -b ../../packages/api-contracts && jest",
-    "link-assets": "react-native-asset"
+    "link-assets": "react-native-asset",
+    "build:device": "cd android && gradlew.bat assembleValidation -PreactNativeArchitectures=arm64-v8a"
   },
   "dependencies": {
     "@ff/api-contracts": "*",
@@ -47,6 +48,7 @@
     "@testing-library/react-native": "^14.0.1",
     "@types/jest": "^29.5.13",
     "@types/react": "^19.2.0",
+    "babel-plugin-transform-inline-environment-variables": "^0.4.4",
     "jest": "^29.6.3",
     "react-native-asset": "^2.3.0",
     "react-test-renderer": "19.2.3",
