@@ -56,9 +56,16 @@ A captura da 1f no escuro achou o oitavo: a **barra de limite** do card da
 fatura usava `colors.surface` como preenchimento — branco no claro, quase
 preto no escuro, sumindo dentro do cardNavy. Também virou `fixedColors`.
 
-Reconferidas no escuro depois das correções: **1b, 1c, 1d, 1f e 2a**. A 1c é a
-que prova a correção do scrim: a tela por trás da folha aparece escurecida, não
-clareada. Faltam as demais — a expectativa é que estejam certas, já que as oito
+Reconferidas no escuro depois das correções: **1b, 1c, 1d, 1f, 1g, 2a, 4a e
+8d**. Três delas são as que provam cada correção:
+
+- **1c** — a folha do lançamento rápido: a tela por trás aparece escurecida,
+  não clareada. É o scrim.
+- **1f** — o card cardNavy: chip translúcido branco, barra de pagamento em
+  toastAction e barra de limite branca, todas legíveis sobre o navy.
+- **1g** — o filtro "Agosto ✕" ativo: texto branco sobre brand.
+
+Faltam as demais — a expectativa é que estejam certas, já que as oito
 correções foram todas em componentes compartilhados, mas isso é hipótese até
 capturar, que é exatamente o erro que o CLAUDE.md manda não cometer.
 
