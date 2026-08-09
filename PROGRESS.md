@@ -32,6 +32,25 @@ Os testes de integração rodam em `family_finance_test`, criado por
 `npm run db:test:prepare --workspace @ff/api`. Antes disso, o TRUNCATE de cada
 arquivo de teste apagava o seed e `npm run verify` deixava o gate sem dados.
 
+### O defeito que o gate escuro achou sem ser visual
+
+Durante as capturas a sessão caiu duas vezes com "Sua sessão expirou", em menos
+de meia hora de uso. A causa: **o app só renovava o access token no arranque**.
+O token vale 15 minutos (`JWT_ACCESS_TTL=900`); passados eles, toda requisição
+respondia 401 e a pessoa era devolvida ao login — que é exatamente o que o
+refresh token existe para evitar.
+
+Pior: o cabeçalho do `api-client.ts` já **prometia** a renovação automática
+("Renovar o access token automaticamente uma vez por requisição, quando o
+servidor responde 401"). O comentário descrevia um código que não existia.
+
+Agora existe: `setTokenRefresher` liga o cliente HTTP ao `session-store`, o 401
+de token expirado renova e repete a requisição uma única vez, e renovações
+concorrentes compartilham a mesma promessa (single-flight) — dez telas que
+falham juntas disparam um refresh, não dez. Se o refresh falhar de verdade
+(sessão revogada em outro aparelho), aí sim o app limpa o Keychain e volta ao
+login.
+
 ### Tema escuro — o defeito que a varredura estática pegou
 
 Antes de capturar qualquer tela, uma varredura estática confirmou o que o

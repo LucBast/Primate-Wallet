@@ -62,7 +62,57 @@ function toApiRequestError(status: number, payload: unknown): ApiRequestError {
   );
 }
 
+/**
+ * Renovação do access token, registrada pelo `session-store`.
+ *
+ * O cliente HTTP não sabe guardar sessão nem falar com o Keychain; ele só sabe
+ * que, diante de um 401 de token expirado, existe alguém capaz de devolver um
+ * token novo. Devolver `null` significa "a sessão acabou de verdade".
+ */
+type TokenRefresher = () => Promise<string | null>;
+
+let refresher: TokenRefresher | null = null;
+/** Uma renovação por vez: dez requisições que caem juntas esperam a mesma. */
+let inFlight: Promise<string | null> | null = null;
+
+export function setTokenRefresher(next: TokenRefresher | null): void {
+  refresher = next;
+}
+
+async function renewOnce(): Promise<string | null> {
+  if (refresher === null) return null;
+  inFlight ??= refresher().finally(() => {
+    inFlight = null;
+  });
+  return inFlight;
+}
+
+/** 401 com token expirado — o único caso que vale tentar renovar. */
+function isExpiredToken(error: ApiRequestError): boolean {
+  return error.status === 401 && error.code !== 'INVALID_CREDENTIALS';
+}
+
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
+  try {
+    return await sendOnce<T>(path, options);
+  } catch (error) {
+    // Renova e repete UMA vez. Sem token na requisição não há o que renovar,
+    // e a chamada de refresh em si nunca entra neste caminho.
+    if (
+      !(error instanceof ApiRequestError) ||
+      !isExpiredToken(error) ||
+      options.accessToken === undefined ||
+      path.startsWith('/auth/refresh')
+    ) {
+      throw error;
+    }
+    const fresh = await renewOnce();
+    if (fresh === null) throw error;
+    return sendOnce<T>(path, { ...options, accessToken: fresh });
+  }
+}
+
+async function sendOnce<T>(path: string, options: RequestOptions): Promise<T> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), appConfig.requestTimeoutMs);
 
