@@ -635,14 +635,11 @@ Aqui ficam só os que impedem chamar o projeto de pronto.
 
 ### Resolvíveis por código, nesta máquina
 
-1. **Central de notificações (6d) e preferências** — as duas telas de
-   "Aparência, notificações e privacidade" ainda são `PhasePlaceholder`. Faltam a
-   tabela `notifications`, as preferências por tipo e a central no app; só o
-   ENVIO depende de FCM/APNs.
-2. **Atalhos do ícone** (docs/12, telas 6c) — o lançamento rápido existe; falta
-   expor os atalhos e retomar a intenção depois do login.
-3. **Jobs de recorrência e notificação agendada** — a recorrência pura está em
-   `@ff/domain`; falta quem a dispare no fuso da família.
+1. **"Aparência, notificações e privacidade"** ainda é `PhasePlaceholder`. As
+   notificações ganharam tela própria (6d); o que resta ali é preferência de
+   TEMA e de privacidade, que o pacote não desenha em screenshot nenhum.
+
+Fora isso, tudo que dependia só de código está entregue.
 
 ### Bloqueios de responsabilidade humana
 
@@ -683,8 +680,19 @@ defeitos, nenhum deles de cor pura:
   defeitos achados no caminho (acima), além do `surfaceElevated` e do `maxHeight`
   do BottomSheet encontrados nas primeiras passadas.
 
+### Fase 8 — o que faltava dela
+
+Central de notificações (6d) com preferências por pessoa, jobs agendados e
+atalhos do ícone (6c). O manifesto Android **não tinha intent-filter de deep
+link nenhum**: `familyfinance://` jamais chegaria ao app, o que tornava o convite
+e a recuperação de acesso por e-mail inalcançáveis na prática. Verificado no
+emulador o caminho completo que o pacote descreve — atalho com o app fechado →
+login → retoma a intenção e abre o formulário sozinho.
+
+Dois defeitos achados olhando a 6d pronta: a `dedupe_key` não incluía o
+destinatário, então só UM membro recebia o aviso de vencimento; e a frase saía
+"venceu há 1 dias".
+
 ## Próxima ação exata
 
-1. Central de notificações (6d) e preferências por tipo.
-2. Atalhos do ícone (6c) e jobs agendados.
-3. Entregar os bloqueios humanos a quem os destrava.
+1. Entregar os bloqueios humanos a quem os destrava — é o que sobrou.

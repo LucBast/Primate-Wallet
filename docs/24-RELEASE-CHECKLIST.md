@@ -34,11 +34,11 @@ teste automatizado passando, medição de pixel, ou verificação manual registr
 | --- | --- | --- |
 | Android build | ✓ | APK debug instalado e exercitado no emulador |
 | iOS build | 🔒 | Exige macOS + Xcode. Não existe nesta máquina |
-| Deep links | ⏳ | Rotas declaradas (`entrar`, `verificar-email`, `senha-nova`, `novo`); exercitadas por navegação, não por `adb shell am start -d` |
-| Atalhos do ícone | ✕ | Fase 8 entregou o lançamento rápido; os atalhos do ícone não |
-| Central de notificações (6d) | ✕ | Ainda é `PhasePlaceholder`. Depende da tabela `notifications` e das preferências por tipo, que não foram implementadas |
-| Aparência e privacidade | ✕ | Idem, `PhasePlaceholder` |
-| Push | 🔒 | Depende de FCM/APNs |
+| Deep links | ✓ | `intent-filter` no Android e `CFBundleURLTypes` no iOS — **não existiam**, então nenhum link do e-mail chegaria ao app. Exercitado por `adb shell am start -d` a partir do app fechado |
+| Atalhos do ícone | ✓ | Quatro atalhos no Android e no iOS. Caminho completo verificado no emulador: atalho com app fechado → login → retoma a intenção |
+| Central de notificações (6d) | ✓ | Central + preferências por tipo, medida contra o screenshot |
+| Aparência e privacidade | ✕ | Ainda `PhasePlaceholder`; tema e privacidade não têm tela própria |
+| Push | 🔒 | A geração e as preferências estão prontas; falta só o ENVIO, que depende de FCM/APNs |
 | Upload de anexos | ⏳ | Registro e caminho escopado prontos; falta o bucket |
 | Cache | ✓ | WatermelonDB; lista offline verificada no emulador |
 | Offline | ✓ | Modo avião: lançamento salvo, faixa correta, envio ao voltar |
@@ -55,7 +55,7 @@ teste automatizado passando, medição de pixel, ou verificação manual registr
 | Índices | ✓ | Revisados na Fase 11; índice de cursor confirmado no `EXPLAIN` |
 | RLS | ✓ | `tests/rls.test.ts` + gatilho de imutabilidade da pendência |
 | Storage | 🔒 | Bucket S3-compatível |
-| Jobs | ✕ | Recorrência e notificações agendadas não implementadas |
+| Jobs | ✓ | Agendador com trava de aviso; geração, cancelamento e materialização de recorrência como funções `SECURITY DEFINER` |
 | Auditoria | ✓ | `audit_logs` + tela 3d |
 | Backup | 🔒 | Depende da infraestrutura; procedimento em `22-RUNBOOKS.md` |
 | Restore testado | 🔒 | idem |
@@ -142,12 +142,11 @@ Smoke test pós-release: ✓ implementado (`npm run smoke --workspace @ff/api`),
 
 **Resolvível por código (nesta máquina):**
 
-1. **Central de notificações (6d) e preferências** — hoje `PhasePlaceholder`.
-   Precisa da tabela `notifications`, das preferências por tipo e da central no
-   app. O envio em si depende de FCM/APNs, que é bloqueio humano, mas a tela e o
-   registro das preferências não.
-2. Atalhos do ícone (docs/12, telas 6c).
-3. Jobs de recorrência e de notificação agendada.
+1. A tela de "Aparência, notificações e privacidade" ainda é `PhasePlaceholder`.
+   As notificações ganharam tela própria (6d); o que falta ali é preferência de
+   TEMA e de privacidade, que o pacote não desenha em nenhum screenshot.
+
+Fora isso, tudo que dependia só de código está entregue.
 
 **Bloqueios de responsabilidade humana** — nenhum destes sai por código:
 
