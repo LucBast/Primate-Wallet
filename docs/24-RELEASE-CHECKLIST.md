@@ -19,7 +19,7 @@ teste automatizado passando, medição de pixel, ou verificação manual registr
 | --- | --- | --- |
 | Design system completo | ✓ | `src/design-system/`, tokens verbatim, lint proíbe literal de cor |
 | Tema claro | ✓ | 26 telas medidas em pixel contra `design/screenshots/` |
-| Tema escuro | ⏳ | 15 telas reconferidas (1b–1g, 2a, 3a, 3b, 3c, aprovações, 8c, 8d, 8g). Faltam 2b, 2c, 2d, 2e, 3d, 4b, 4c, 6a, 8a, 8b, 8e, 8f |
+| Tema escuro | ⏳ | 18 telas reconferidas (1b–1g, 2a, 2c, 2d, 3a, 3b, 3c, 3d, aprovações, 8c, 8d, 8g). Faltam 2b, 2e, 4b, 4c, 6a, 8a, 8b, 8e, 8f |
 | Estados de loading | ✓ | `components/states.tsx`, usado em todas as listas |
 | Estados vazios | ✓ | idem |
 | Estados de erro | ✓ | idem |
@@ -140,7 +140,7 @@ Smoke test pós-release: ✓ implementado (`npm run smoke --workspace @ff/api`),
 
 **Resolvível por código (nesta máquina):**
 
-1. Tema escuro nas 12 telas restantes.
+1. Tema escuro nas 9 telas restantes (2b, 2e, 4b, 4c, 6a, 8a, 8b, 8e, 8f).
 2. Atalhos do ícone (docs/12, telas 6c).
 3. Jobs de recorrência e de notificação agendada.
 

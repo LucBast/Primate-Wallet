@@ -635,7 +635,7 @@ Aqui ficam só os que impedem chamar o projeto de pronto.
 
 ### Resolvíveis por código, nesta máquina
 
-1. **Tema escuro em 12 telas** — 2b, 2c, 2d, 2e, 3d, 4b, 4c, 6a, 8a, 8b, 8e, 8f.
+1. **Tema escuro em 9 telas** — 2b, 2e, 4b, 4c, 6a, 8a, 8b, 8e, 8f.
    As 15 já reconferidas passaram; o ferramental está pronto e o custo por tela é
    baixo. Não marco como feito o que não medi: foi confiando nessa expectativa,
    na primeira passada pela 1b, que o defeito do `surfaceElevated` escapou.
