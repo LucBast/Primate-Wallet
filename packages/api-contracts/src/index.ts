@@ -14,4 +14,5 @@ export * from './planning.js';
 export * from './transaction.js';
 export * from './approval.js';
 export * from './card.js';
+export * from './notification.js';
 export * from './report.js';

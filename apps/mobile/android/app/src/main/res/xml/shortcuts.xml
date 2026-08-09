@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Atalhos de pressão longa no ícone (docs/12 §2; tela 6c).
+
+  As quatro ações do pacote, na ordem em que a 6c as lista. Cada uma abre o
+  MESMO formulário do botão "+", por deep link — não existe um segundo caminho
+  de lançamento para manter em pé.
+
+  `android:targetPackage` e `targetClass` apontam para a MainActivity, que já é
+  `singleTask`: com o app aberto, o atalho reaproveita a instância em vez de
+  empilhar uma segunda.
+-->
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="despesa"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_expense_short"
+        android:shortcutLongLabel="@string/shortcut_expense_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="familyfinance://quick/expense"
+            android:targetPackage="com.familyfinance"
+            android:targetClass="com.familyfinance.MainActivity" />
+        <categories android:name="android.shortcut.conversation" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="receita"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_income_short"
+        android:shortcutLongLabel="@string/shortcut_income_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="familyfinance://quick/income"
+            android:targetPackage="com.familyfinance"
+            android:targetClass="com.familyfinance.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="compra-cartao"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_card_short"
+        android:shortcutLongLabel="@string/shortcut_card_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="familyfinance://quick/card-purchase"
+            android:targetPackage="com.familyfinance"
+            android:targetClass="com.familyfinance.MainActivity" />
+    </shortcut>
+
+    <shortcut
+        android:shortcutId="conta-pagar"
+        android:enabled="true"
+        android:icon="@mipmap/ic_launcher"
+        android:shortcutShortLabel="@string/shortcut_payable_short"
+        android:shortcutLongLabel="@string/shortcut_payable_long">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:data="familyfinance://planned/payable/new"
+            android:targetPackage="com.familyfinance"
+            android:targetClass="com.familyfinance.MainActivity" />
+    </shortcut>
+</shortcuts>

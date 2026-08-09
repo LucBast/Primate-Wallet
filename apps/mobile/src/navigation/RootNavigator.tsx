@@ -17,7 +17,10 @@ import {
   type ParamListBase,
   type Theme as NavigationTheme,
 } from '@react-navigation/native';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import {
+  createNativeStackNavigator,
+  type NativeStackNavigationProp,
+} from '@react-navigation/native-stack';
 import { useTheme } from '../design-system/theme';
 import { LoginScreen } from '../features/auth/LoginScreen';
 import { CreateAccountScreen } from '../features/auth/CreateAccountScreen';
@@ -48,9 +51,11 @@ import { TransferScreen } from '../features/transactions/TransferScreen';
 import { CardStatementScreen } from '../features/card/CardStatementScreen';
 import { CardPurchaseScreen } from '../features/card/CardPurchaseScreen';
 import { ReportsScreen } from '../features/home/ReportsScreen';
+import { NotificationsScreen } from '../features/notification/NotificationsScreen';
 import { PhasePlaceholder } from '../components/PhasePlaceholder';
 import { QuickEntryScreen } from '../features/quick-entry/QuickEntryScreen';
 import { appConfig } from '../services/config';
+import { captureLaunchIntent, subscribeToIntents, takeIntent, type Intent } from './pending-intent';
 import { useSync } from '../offline/use-sync';
 import { AppTabs } from './AppTabs';
 import type { AppStackParamList, AuthStackParamList, OnboardingStackParamList } from './types';
@@ -133,6 +138,38 @@ function OnboardingFlow(): React.JSX.Element {
   );
 }
 
+/**
+ * Retoma a intenção do atalho do ícone (docs/12 §2).
+ *
+ * Mora DENTRO da rota Tabs, e não no arranque, por um motivo prático: só aqui
+ * já existe sessão e família. Tratado no arranque, o app tentaria abrir o
+ * formulário por cima da tela de login — que é justamente o caso que o pacote
+ * manda resolver ("sessão expirada → login → retoma a intenção").
+ *
+ * `takeIntent` consome de uma vez, então remontar a navegação não reabre o
+ * mesmo formulário. Não desenha nada.
+ */
+function ShortcutIntent({
+  navigation,
+}: {
+  readonly navigation: NativeStackNavigationProp<AppStackParamList, 'Tabs'>;
+}): null {
+  useEffect(() => {
+    const abrir = (intent: Intent): void => {
+      if (intent.kind === 'card-purchase') navigation.navigate('CompraCartao');
+      else if (intent.kind === 'payable')
+        navigation.navigate('NovaContaPrevista', { nature: 'PAYABLE' });
+      else navigation.navigate('LancamentoRapido');
+    };
+
+    const guardada = takeIntent();
+    if (guardada !== null) abrir(guardada);
+    return subscribeToIntents(abrir);
+  }, [navigation]);
+
+  return null;
+}
+
 function AppFlow(): React.JSX.Element {
   const accessToken = useSessionStore((state) => state.accessToken);
   const activeId = useHouseholdStore((state) => state.activeId);
@@ -166,26 +203,28 @@ function AppFlow(): React.JSX.Element {
     <AppStack.Navigator screenOptions={{ headerShown: false }}>
       <AppStack.Screen name="Tabs">
         {({ navigation }) => (
-          <AppTabs
-            onQuickEntry={() => navigation.navigate('LancamentoRapido')}
-            onNewPlannedEntry={(nature) => navigation.navigate('NovaContaPrevista', { nature })}
-            onSettleEntry={(entry) => navigation.navigate('DarBaixa', { entry })}
-            onOpenPlannedEntry={(entry) => navigation.navigate('DetalheContaPrevista', { entry })}
-            onOpenPlanningTab={() => undefined}
-            onOpenTransaction={(transaction) =>
-              navigation.navigate('DetalheMovimentacao', { transaction })
-            }
-            onNavigate={(destination) => {
-              if (destination === 'Familia') navigation.navigate('Familia');
-              else if (destination === 'Sessoes') navigation.navigate('Sessoes');
-              else if (destination === 'Contas') navigation.navigate('Contas');
-              else if (destination === 'Categorias') navigation.navigate('Categorias');
-              else if (destination === 'Relatorios') navigation.navigate('Relatorios');
-              else if (destination === 'Notificacoes')
-                navigation.navigate('EmConstrucao', { destination: 'Notificacoes' });
-              else navigation.navigate('EmConstrucao', { destination });
-            }}
-          />
+          <>
+            <ShortcutIntent navigation={navigation} />
+            <AppTabs
+              onQuickEntry={() => navigation.navigate('LancamentoRapido')}
+              onNewPlannedEntry={(nature) => navigation.navigate('NovaContaPrevista', { nature })}
+              onSettleEntry={(entry) => navigation.navigate('DarBaixa', { entry })}
+              onOpenPlannedEntry={(entry) => navigation.navigate('DetalheContaPrevista', { entry })}
+              onOpenPlanningTab={() => undefined}
+              onOpenTransaction={(transaction) =>
+                navigation.navigate('DetalheMovimentacao', { transaction })
+              }
+              onNavigate={(destination) => {
+                if (destination === 'Familia') navigation.navigate('Familia');
+                else if (destination === 'Sessoes') navigation.navigate('Sessoes');
+                else if (destination === 'Contas') navigation.navigate('Contas');
+                else if (destination === 'Categorias') navigation.navigate('Categorias');
+                else if (destination === 'Relatorios') navigation.navigate('Relatorios');
+                else if (destination === 'Notificacoes') navigation.navigate('Notificacoes');
+                else navigation.navigate('EmConstrucao', { destination });
+              }}
+            />
+          </>
         )}
       </AppStack.Screen>
 
@@ -396,6 +435,25 @@ function AppFlow(): React.JSX.Element {
         {({ navigation }) => <ReportsScreen onBack={() => navigation.goBack()} />}
       </AppStack.Screen>
 
+      <AppStack.Screen name="Notificacoes">
+        {({ navigation }) => (
+          <NotificationsScreen
+            onBack={() => navigation.goBack()}
+            onOpen={(aviso) => {
+              // O toque abre o CONTEXTO do aviso, não uma tela genérica
+              // (docs/12 §6). Sem contexto conhecido, cai na lista da família.
+              // Aprovação e fatura têm tela própria. Conta prevista volta às
+              // abas, porque o planejamento É uma aba: abrir o detalhe exigiria
+              // a entrada inteira, e o aviso só carrega o id. Registrado em
+              // DECISIONS como o mais próximo do existente (regra 8).
+              if (aviso.entityType === 'approval_request') navigation.navigate('Aprovacoes');
+              else if (aviso.entityType === 'card_statement') navigation.navigate('Contas');
+              else navigation.goBack();
+            }}
+          />
+        )}
+      </AppStack.Screen>
+
       <AppStack.Screen name="Aprovacoes">
         {({ navigation }) => <ApprovalsScreen onBack={() => navigation.goBack()} />}
       </AppStack.Screen>
@@ -451,6 +509,10 @@ export function RootNavigator(): React.JSX.Element {
 
   useEffect(() => {
     void restore();
+    // Guarda a intenção do atalho ANTES de decidir qual navegador mostrar: com
+    // o app fechado, a URL que o abriu é lida uma vez só, e ela precisa
+    // sobreviver ao caminho pelo login (docs/12 §2).
+    void captureLaunchIntent();
   }, [restore]);
 
   // Esvazia o outbox quando há sessão e família, e de novo a cada volta do

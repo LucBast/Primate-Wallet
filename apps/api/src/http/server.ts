@@ -41,6 +41,11 @@ import { createReportService, type ReportService } from '../modules/report/servi
 import { registerReportRoutes } from '../modules/report/routes.js';
 import { createApprovalService, type ApprovalService } from '../modules/approval/service.js';
 import { registerApprovalRoutes } from '../modules/approval/routes.js';
+import {
+  createNotificationService,
+  type NotificationService,
+} from '../modules/notification/service.js';
+import { registerNotificationRoutes } from '../modules/notification/routes.js';
 
 export const APP_VERSION = '0.1.0';
 
@@ -71,6 +76,7 @@ export type BuiltServer = {
   readonly cards: CardService;
   readonly reports: ReportService;
   readonly approvals: ApprovalService;
+  readonly notifications: NotificationService;
 };
 
 export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
@@ -151,6 +157,9 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
   const approvals = createApprovalService({ db });
   await registerApprovalRoutes(app, { approvals, authenticate });
 
+  const notifications = createNotificationService({ db });
+  await registerNotificationRoutes(app, { notifications, authenticate });
+
   return {
     app,
     auth,
@@ -162,5 +171,6 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
     cards,
     reports,
     approvals,
+    notifications,
   };
 }

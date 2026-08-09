@@ -33,6 +33,77 @@
 		<key>NSAllowsLocalNetworking</key>
 		<true/>
 	</dict>
+	<!-- Esquema de deep link (docs/12 §1). Sem ele o iOS não entrega
+	     `familyfinance://…` ao app, e convite e recuperação de acesso por
+	     e-mail não abrem. -->
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.familyfinance</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>familyfinance</string>
+			</array>
+		</dict>
+	</array>
+	<!-- Atalhos de pressão longa no ícone (docs/12 §2; tela 6c). As mesmas
+	     quatro ações do Android, apontando para os mesmos deep links. -->
+	<key>UIApplicationShortcutItems</key>
+	<array>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>quick.expense</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Registrar despesa</string>
+			<key>UIApplicationShortcutItemIconType</key>
+			<string>UIApplicationShortcutIconTypeAdd</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>url</key>
+				<string>familyfinance://quick/expense</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>quick.income</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Registrar receita</string>
+			<key>UIApplicationShortcutItemIconType</key>
+			<string>UIApplicationShortcutIconTypeAdd</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>url</key>
+				<string>familyfinance://quick/income</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>quick.card</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Compra no cartão</string>
+			<key>UIApplicationShortcutItemIconType</key>
+			<string>UIApplicationShortcutIconTypeAdd</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>url</key>
+				<string>familyfinance://quick/card-purchase</string>
+			</dict>
+		</dict>
+		<dict>
+			<key>UIApplicationShortcutItemType</key>
+			<string>planned.payable</string>
+			<key>UIApplicationShortcutItemTitle</key>
+			<string>Nova conta a pagar</string>
+			<key>UIApplicationShortcutItemIconType</key>
+			<string>UIApplicationShortcutIconTypeCompose</string>
+			<key>UIApplicationShortcutItemUserInfo</key>
+			<dict>
+				<key>url</key>
+				<string>familyfinance://planned/payable/new</string>
+			</dict>
+		</dict>
+	</array>
 	<key>UILaunchStoryboardName</key>
 	<string>LaunchScreen</string>
 	<key>UIRequiredDeviceCapabilities</key>

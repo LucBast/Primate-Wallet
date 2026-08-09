@@ -22,6 +22,22 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent-filter>
+
+        <!-- Deep links do doc 12. Sem este filtro, `familyfinance://…` nunca
+             chega ao app: a configuração de `linking` do React Navigation só
+             roteia o que o SISTEMA entrega. O e-mail de convite e o de
+             recuperação de acesso dependem disto para funcionar. -->
+        <intent-filter android:autoVerify="false">
+            <action android:name="android.intent.action.VIEW" />
+            <category android:name="android.intent.category.DEFAULT" />
+            <category android:name="android.intent.category.BROWSABLE" />
+            <data android:scheme="familyfinance" />
+        </intent-filter>
       </activity>
+
+      <!-- Atalhos de pressão longa no ícone (docs/12 §2; tela 6c). -->
+      <meta-data
+        android:name="android.app.shortcuts"
+        android:resource="@xml/shortcuts" />
     </application>
 </manifest>

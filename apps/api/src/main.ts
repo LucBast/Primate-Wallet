@@ -14,6 +14,7 @@ import { createLogger } from './observability/logger.js';
 import { createDatabase } from './db/pool.js';
 import { createLogMailer } from './modules/auth/mailer.js';
 import { buildServer } from './http/server.js';
+import { startScheduler } from './jobs/scheduler.js';
 
 // O `.env` de desenvolvimento fica na raiz do monorepo, não em apps/api, e o
 // processo pode ser iniciado de qualquer cwd (raiz via workspaces, ou apps/api).
@@ -45,8 +46,14 @@ async function main(): Promise<void> {
     mailer: createLogMailer(logger),
   });
 
+  // Avisos de vencimento, fatura e aprovação, e extensão das recorrências
+  // (docs/12 §5). Roda com trava do Postgres, então subir várias instâncias
+  // não multiplica o trabalho.
+  const scheduler = startScheduler({ pool: db.app, logger });
+
   const shutdown = async (signal: string): Promise<void> => {
     logger.info({ signal }, 'Encerrando');
+    scheduler.stop();
     await app.close();
     await db.close();
     process.exit(0);

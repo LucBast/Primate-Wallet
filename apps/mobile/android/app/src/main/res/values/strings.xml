@@ -1,3 +1,15 @@
 <resources>
     <string name="app_name">FamilyFinance</string>
+
+    <!-- Rótulos dos atalhos do ícone (tela 6c). O curto aparece no menu de
+         pressão longa e tem espaço para poucos caracteres; o longo aparece
+         quando a pessoa fixa o atalho na tela inicial. Copy pt-BR do design. -->
+    <string name="shortcut_expense_short">Despesa</string>
+    <string name="shortcut_expense_long">Registrar despesa</string>
+    <string name="shortcut_income_short">Receita</string>
+    <string name="shortcut_income_long">Registrar receita</string>
+    <string name="shortcut_card_short">Cartão</string>
+    <string name="shortcut_card_long">Compra no cartão</string>
+    <string name="shortcut_payable_short">A pagar</string>
+    <string name="shortcut_payable_long">Nova conta a pagar</string>
 </resources>
