@@ -760,10 +760,19 @@ export function createHouseholdService(deps: HouseholdServiceDeps) {
             metadata: Record<string, unknown> | null;
             created_at: Date;
           }>(
-            `SELECT a.id, p.name AS actor_name, a.entity_type, a.entity_id, a.action,
+            // O nome vem de `household_members`, não de `profiles`.
+            //
+            // A RLS de `profiles` só deixa a pessoa ler o próprio perfil — e
+            // corretamente, porque nome e e-mail de quem quer que seja não são
+            // dados de família. O efeito colateral era que a 3d mostrava "Ana"
+            // (você) e "Alguém" para todos os outros, o que esvazia uma tela
+            // cujo texto é "{Autor} {ação} {objeto}". `display_name` é o nome
+            // DENTRO da família, que é justamente o que a tela quer dizer.
+            `SELECT a.id, m.display_name AS actor_name, a.entity_type, a.entity_id, a.action,
                     a.before_data, a.after_data, a.metadata, a.created_at
                FROM audit_logs a
-               LEFT JOIN profiles p ON p.id = a.actor_user_id
+               LEFT JOIN household_members m
+                 ON m.user_id = a.actor_user_id AND m.household_id = a.household_id
               WHERE a.household_id = $1
               ORDER BY a.created_at DESC
               LIMIT $2`,

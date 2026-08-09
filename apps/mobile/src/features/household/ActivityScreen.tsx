@@ -53,14 +53,24 @@ const ACTION_PHRASE: Record<string, string> = {
   ALLOCATIONS_UPDATED: 'alterou o rateio de uma movimentação',
   MEMBER_SUSPENDED: 'suspendeu um membro',
   ATTACHMENT_CREATED: 'anexou um arquivo',
-  APPROVAL_APPROVED: 'aprovou um lançamento',
+  APPROVAL_REQUESTED: 'pediu aprovação de um lançamento',
+  APPROVAL_GRANTED: 'aprovou um lançamento',
   APPROVAL_REJECTED: 'recusou um lançamento',
+  ACCOUNT_PERMISSIONS_UPDATED: 'alterou as contas autorizadas de um membro',
   EXPORT_REQUESTED: 'exportou dados da família',
 };
 
+/**
+ * O mapa é uma PERMISSÃO, como o de campos logo abaixo.
+ *
+ * O fallback antigo era `action.toLowerCase().replace(/_/g, ' ')`, que jogava o
+ * código do enum na tela — em inglês. A 3d chegou a mostrar "Ana account
+ * permissions updated" para uma pessoa que só fala português. Ação sem frase
+ * escrita vira uma linha genérica, e a lacuna aparece aqui, não para o usuário.
+ */
 function phraseFor(entry: AuditEntry): string {
   const actor = entry.actorName ?? 'Alguém';
-  return `${actor} ${ACTION_PHRASE[entry.action] ?? entry.action.toLowerCase().replace(/_/g, ' ')}`;
+  return `${actor} ${ACTION_PHRASE[entry.action] ?? 'registrou uma ação na família'}`;
 }
 
 /**
