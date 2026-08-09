@@ -635,13 +635,17 @@ Aqui ficam só os que impedem chamar o projeto de pronto.
 
 ### Resolvíveis por código, nesta máquina
 
-1. **Tema escuro em 9 telas** — 2b, 2e, 4b, 4c, 6a, 8a, 8b, 8e, 8f.
+1. **Tema escuro em 6 telas** — 2e, 4c, 6a, 8a, 8b, 8e. As 21 já reconferidas passaram.
    As 15 já reconferidas passaram; o ferramental está pronto e o custo por tela é
    baixo. Não marco como feito o que não medi: foi confiando nessa expectativa,
    na primeira passada pela 1b, que o defeito do `surfaceElevated` escapou.
-2. **Atalhos do ícone** (docs/12, telas 6c) — o lançamento rápido existe; falta
+2. **Central de notificações (6d) e preferências** — as duas telas de
+   "Aparência, notificações e privacidade" ainda são `PhasePlaceholder`. Faltam a
+   tabela `notifications`, as preferências por tipo e a central no app; só o
+   ENVIO depende de FCM/APNs.
+3. **Atalhos do ícone** (docs/12, telas 6c) — o lançamento rápido existe; falta
    expor os atalhos e retomar a intenção depois do login.
-3. **Jobs de recorrência e notificação agendada** — a recorrência pura está em
+4. **Jobs de recorrência e notificação agendada** — a recorrência pura está em
    `@ff/domain`; falta quem a dispare no fuso da família.
 
 ### Bloqueios de responsabilidade humana

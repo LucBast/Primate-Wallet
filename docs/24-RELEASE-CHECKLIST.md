@@ -19,7 +19,7 @@ teste automatizado passando, medição de pixel, ou verificação manual registr
 | --- | --- | --- |
 | Design system completo | ✓ | `src/design-system/`, tokens verbatim, lint proíbe literal de cor |
 | Tema claro | ✓ | 26 telas medidas em pixel contra `design/screenshots/` |
-| Tema escuro | ⏳ | 18 telas reconferidas (1b–1g, 2a, 2c, 2d, 3a, 3b, 3c, 3d, aprovações, 8c, 8d, 8g). Faltam 2b, 2e, 4b, 4c, 6a, 8a, 8b, 8e, 8f |
+| Tema escuro | ⏳ | 21 telas reconferidas (1b–1g, 2a–2d, 3a–3d, aprovações, 4a, 4b, 8c, 8d, 8f, 8g). Faltam 2e, 4c, 6a, 8a, 8b, 8e |
 | Estados de loading | ✓ | `components/states.tsx`, usado em todas as listas |
 | Estados vazios | ✓ | idem |
 | Estados de erro | ✓ | idem |
@@ -36,6 +36,8 @@ teste automatizado passando, medição de pixel, ou verificação manual registr
 | iOS build | 🔒 | Exige macOS + Xcode. Não existe nesta máquina |
 | Deep links | ⏳ | Rotas declaradas (`entrar`, `verificar-email`, `senha-nova`, `novo`); exercitadas por navegação, não por `adb shell am start -d` |
 | Atalhos do ícone | ✕ | Fase 8 entregou o lançamento rápido; os atalhos do ícone não |
+| Central de notificações (6d) | ✕ | Ainda é `PhasePlaceholder`. Depende da tabela `notifications` e das preferências por tipo, que não foram implementadas |
+| Aparência e privacidade | ✕ | Idem, `PhasePlaceholder` |
 | Push | 🔒 | Depende de FCM/APNs |
 | Upload de anexos | ⏳ | Registro e caminho escopado prontos; falta o bucket |
 | Cache | ✓ | WatermelonDB; lista offline verificada no emulador |
@@ -140,9 +142,13 @@ Smoke test pós-release: ✓ implementado (`npm run smoke --workspace @ff/api`),
 
 **Resolvível por código (nesta máquina):**
 
-1. Tema escuro nas 9 telas restantes (2b, 2e, 4b, 4c, 6a, 8a, 8b, 8e, 8f).
-2. Atalhos do ícone (docs/12, telas 6c).
-3. Jobs de recorrência e de notificação agendada.
+1. Tema escuro nas 6 telas restantes (2e, 4c, 6a, 8a, 8b, 8e).
+2. **Central de notificações (6d) e preferências** — hoje `PhasePlaceholder`.
+   Precisa da tabela `notifications`, das preferências por tipo e da central no
+   app. O envio em si depende de FCM/APNs, que é bloqueio humano, mas a tela e o
+   registro das preferências não.
+3. Atalhos do ícone (docs/12, telas 6c).
+4. Jobs de recorrência e de notificação agendada.
 
 **Bloqueios de responsabilidade humana** — nenhum destes sai por código:
 
