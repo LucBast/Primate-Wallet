@@ -13,7 +13,14 @@
  */
 
 import { randomUUID } from 'node:crypto';
-import { allocate, DomainError, familyToday, minor } from '@ff/domain';
+import {
+  allocate,
+  DomainError,
+  familyToday,
+  minor,
+  requiresApproval,
+  type ApprovalRule,
+} from '@ff/domain';
 import type {
   CreateExpenseRequest,
   CreateIncomeRequest,
@@ -167,9 +174,17 @@ async function householdContext(
   client: PoolClient,
   householdId: string,
   userId: string,
-): Promise<{ role: string; memberId: string; timezone: string }> {
-  const result = await client.query<{ role: string; member_id: string; timezone: string }>(
-    `SELECT m.role, m.id AS member_id, h.timezone
+): Promise<{ role: string; memberId: string; timezone: string; approval: ApprovalRule }> {
+  const result = await client.query<{
+    role: string;
+    member_id: string;
+    timezone: string;
+    is_supervised: boolean;
+    approval_mode: ApprovalRule['mode'];
+    approval_threshold_minor: string | number | null;
+  }>(
+    `SELECT m.role, m.id AS member_id, h.timezone, m.is_supervised, m.approval_mode,
+            m.approval_threshold_minor
        FROM household_members m
        JOIN households h ON h.id = m.household_id
       WHERE m.household_id = $1 AND m.user_id = $2 AND m.status = 'ACTIVE'`,
@@ -177,7 +192,17 @@ async function householdContext(
   );
   const row = result.rows[0];
   if (!row) throw new DomainError('HOUSEHOLD_NOT_FOUND');
-  return { role: row.role, memberId: row.member_id, timezone: row.timezone };
+  return {
+    role: row.role,
+    memberId: row.member_id,
+    timezone: row.timezone,
+    approval: {
+      isSupervised: row.is_supervised,
+      mode: row.approval_mode,
+      thresholdMinor:
+        row.approval_threshold_minor === null ? null : Number(row.approval_threshold_minor),
+    },
+  };
 }
 
 /** Perfis que podem operar transferência, pagamento e estorno. */
@@ -280,7 +305,7 @@ export function createTransactionService(deps: { readonly db: Database }) {
     ctx: RequestContext,
   ): Promise<Transaction> {
     return withUserTransaction(db, userId, async (client) => {
-      const { timezone } = await householdContext(client, householdId, userId);
+      const { timezone, memberId, approval } = await householdContext(client, householdId, userId);
 
       const existing = await findByIdempotencyKey(client, householdId, input.idempotencyKey);
       // Repetir o comando devolve o mesmo resultado: é isso que torna seguro
@@ -291,6 +316,11 @@ export function createTransactionService(deps: { readonly db: Database }) {
       // Despesa em cartão é COMPRA no cartão: não sai da conta bancária agora.
       const effectiveType =
         type === 'EXPENSE' && accountType === 'CREDIT_CARD' ? 'CARD_PURCHASE' : type;
+
+      // Supervisão (docs/04 §16): a regra vale para o que SAI. Receita de filho
+      // não precisa de autorização de ninguém — só o gasto precisa.
+      const needsApproval = type === 'EXPENSE' && requiresApproval(approval, input.amountMinor);
+      const status = needsApproval ? 'PENDING_APPROVAL' : 'POSTED';
 
       const counterpartyId = await upsertCounterparty(client, householdId, input.counterpartyName);
       const today = familyToday(timezone);
@@ -304,7 +334,7 @@ export function createTransactionService(deps: { readonly db: Database }) {
              status, notes, idempotency_key, created_by
            ) VALUES (
              $1, $2, $3, $4, $5, COALESCE($6::date, CURRENT_DATE)::timestamptz,
-             COALESCE($7::date, $8::date), $9, $10, $11, $12, $13, 'POSTED', $14, $15, $16
+             COALESCE($7::date, $8::date), $9, $10, $11, $12, $13, $17, $14, $15, $16
            )`,
           [
             transactionId,
@@ -323,6 +353,7 @@ export function createTransactionService(deps: { readonly db: Database }) {
             input.notes ?? null,
             input.idempotencyKey,
             userId,
+            status,
           ],
         );
       } catch (error) {
@@ -334,10 +365,29 @@ export function createTransactionService(deps: { readonly db: Database }) {
         throw error;
       }
 
+      if (needsApproval) {
+        await client.query(
+          `INSERT INTO approval_requests
+             (household_id, transaction_id, requested_by_member_id, requested_by_user_id,
+              rule_mode, rule_threshold_minor)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            householdId,
+            transactionId,
+            memberId,
+            userId,
+            // NEVER nunca chega aqui: `requiresApproval` já teria devolvido false.
+            approval.mode,
+            approval.thresholdMinor,
+          ],
+        );
+      }
+
       // Compra no cartão precisa entrar na fatura do ciclo. Sem isto a dívida
       // aparece no saldo do cartão, mas a fatura fica zerada e a compra nunca é
       // cobrada — era o defeito registrado no PROGRESS em 2026-08-07.
-      if (effectiveType === 'CARD_PURCHASE') {
+      // Pendente NÃO entra: só ao aprovar a compra consome fatura e limite.
+      if (effectiveType === 'CARD_PURCHASE' && !needsApproval) {
         await attachPurchaseToStatement(
           client,
           householdId,
@@ -357,7 +407,7 @@ export function createTransactionService(deps: { readonly db: Database }) {
         actorUserId: userId,
         entityType: 'transaction',
         entityId: transactionId,
-        action: 'TRANSACTION_CREATED',
+        action: needsApproval ? 'APPROVAL_REQUESTED' : 'TRANSACTION_CREATED',
         afterData: {
           type: effectiveType,
           amountMinor: input.amountMinor,

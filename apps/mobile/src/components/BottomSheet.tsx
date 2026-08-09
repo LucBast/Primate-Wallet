@@ -64,7 +64,18 @@ export function BottomSheet({
         style={[styles.scrim, { backgroundColor: fixedColors.scrim }]}
       />
 
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      {/* O limite de 88% mora AQUI, não na folha.
+          Uma porcentagem se resolve contra a altura do pai, e o pai da folha
+          era este container — que, por sua vez, era dimensionado pela própria
+          folha. A restrição virava circular e o Yoga a resolvia encolhendo: a
+          folha ficava menor que o conteúdo mesmo com a tela inteira sobrando,
+          e o fim do conteúdo (na 3c, o campo de mensagem) sumia. Preso a este
+          container, que é filho direto do root `flex: 1`, o 88% passa a ser
+          88% DA TELA, como sempre foi a intenção. */}
+      <KeyboardAvoidingView
+        style={styles.container}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      >
         <View
           style={[
             styles.sheet,
@@ -129,7 +140,8 @@ export function BottomSheet({
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   scrim: { flex: 1, opacity: 0.45 },
-  sheet: { maxHeight: '88%', paddingTop: 10 },
+  container: { maxHeight: '88%' },
+  sheet: { paddingTop: 10 },
   scroll: { flexShrink: 1 },
   handle: {
     alignSelf: 'center',

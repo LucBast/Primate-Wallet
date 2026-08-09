@@ -2,9 +2,9 @@
 
 ## Status geral
 
-- Fase atual: **Fase 8 — Experiência rápida (lançamento rápido entregue)**
-- Fases concluídas: **0, 1, 2, 3, 4, 5, 6, 7**
-- Última atualização: 2026-08-06
+- Fase atual: **Fase 10 — Offline e sincronização**
+- Fases concluídas: **0, 1, 2, 3, 4, 5, 6, 7, 8, 9**
+- Última atualização: 2026-08-09
 - Responsável: Claude Code
 - Repositório: https://github.com/LucBast/Primate-Wallet (branch `main`)
 
@@ -500,12 +500,18 @@ filho supervisionado. Telas 1b e 4a–4d.
 
 - Nada. Fase 7 fechada e enviada ao repositório.
 
+### Fase 9 — Supervisão familiar
+
+A movimentação do filho supervisionado nasce `PENDING_APPROVAL` em `transactions` e,
+por isso, já não afeta saldo, limite nem relatório — todos somam apenas `POSTED`
+(D-055). `approval_requests` guarda quem pediu, **qual regra estava valendo no momento
+do pedido** e quem decidiu. Gatilho no banco torna a proposta imutável enquanto pendente
+e restringe a decisão a quem opera finanças — no Postgres, não só no serviço. Recusar
+não apaga: vira `REJECTED` e continua auditável. Compra em cartão pendente não entra na
+fatura nem consome limite antes da decisão. Telas 3c e a lista que a 3a abre.
+
 ## Pendente
 
-- **Fase 8 — Experiência rápida**: lançamento rápido pelo botão central, sugestões,
-  recentes, deep links, atalhos do ícone, notificações. Telas 1c, 6c, 6d.
-- **Fase 9 — Supervisão familiar**: aprovações, limites, visibilidade, fluxos de filho.
-  Tela 3c.
 - **Fase 10 — Offline e sincronização**: WatermelonDB, outbox, conflitos, feedback.
 - **Fase 11 — Qualidade e hardening**: cobertura, E2E, acessibilidade, performance,
   segurança, device testing, recovery, runbooks.

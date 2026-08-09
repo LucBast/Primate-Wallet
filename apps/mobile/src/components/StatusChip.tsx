@@ -21,6 +21,8 @@ export type StatusKind =
   | 'recebido'
   | 'vencido'
   | 'aguardandoAprovacao'
+  /** Mesma combinação, rótulo curto do chip da 3c: "● Pendente". */
+  | 'pendente'
   | 'estornado'
   | 'aguardandoSincronizacao';
 
@@ -42,6 +44,7 @@ const LABELS: Record<StatusKind, string> = {
   recebido: 'Recebido',
   vencido: 'Vencido',
   aguardandoAprovacao: 'Aguardando aprovação',
+  pendente: 'Pendente',
   estornado: 'Estornado',
   aguardandoSincronizacao: 'Aguardando sincronização',
 };
@@ -56,6 +59,7 @@ export function StatusChip({ status, detail, onCard = false }: StatusChipProps):
     recebido: { background: colors.incomeSoft, foreground: colors.income },
     vencido: { background: colors.dangerSoft, foreground: colors.danger },
     aguardandoAprovacao: { background: colors.pendingSoft, foreground: colors.pending },
+    pendente: { background: colors.pendingSoft, foreground: colors.pending },
     estornado: { background: colors.chipNeutral, foreground: colors.textSecondary },
     aguardandoSincronizacao: { background: colors.infoSoft, foreground: colors.info },
   };

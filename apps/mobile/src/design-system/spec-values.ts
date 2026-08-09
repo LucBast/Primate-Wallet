@@ -88,3 +88,19 @@ export const loginLogo = {
   size: 64,
   glyph: { fontFamily: font.extrabold, fontSize: 30 },
 } as const;
+
+/**
+ * SCREEN-SPECS §3c: "Card da despesa proposta: valor expense 30".
+ *
+ * Nenhum token de `type` tem 30 — `moneyLg` é 32 e `moneyMd`, 20. A medição de
+ * `3c-aprovacao.png` confirma o spec: a altura de caixa alta do "R$ 89,90" é
+ * 21px, que em Manrope ExtraBold corresponde a fonte 30, não 32. A entrelinha
+ * segue a proporção de `moneyLg` (32/40 = 1,25). Registrado em DECISIONS.
+ */
+export const sheetMoney = {
+  fontFamily: font.extrabold,
+  fontSize: 30,
+  lineHeight: 38,
+  // Sem `as const` na lista: TextStyle exige `FontVariant[]` mutável.
+  fontVariant: ['tabular-nums'] as ['tabular-nums'],
+} as const;

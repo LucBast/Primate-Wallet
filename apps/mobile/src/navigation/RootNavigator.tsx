@@ -24,6 +24,7 @@ import { CreateAccountScreen } from '../features/auth/CreateAccountScreen';
 import { TokenLandingScreen } from '../features/auth/TokenLandingScreen';
 import { SessionsScreen } from '../features/auth/SessionsScreen';
 import { useSessionStore } from '../features/auth/session-store';
+import { ApprovalsScreen } from '../features/household/ApprovalsScreen';
 import { ActivityScreen } from '../features/household/ActivityScreen';
 import { CreateHouseholdScreen } from '../features/household/CreateHouseholdScreen';
 import { FamilyScreen } from '../features/household/FamilyScreen';
@@ -387,13 +388,7 @@ function AppFlow(): React.JSX.Element {
       </AppStack.Screen>
 
       <AppStack.Screen name="Aprovacoes">
-        {() => (
-          <PhasePlaceholder
-            title="Aprovações pendentes"
-            phase="Fase 9 — Supervisão familiar"
-            screenshot="design/screenshots/3c-aprovacao.png"
-          />
-        )}
+        {({ navigation }) => <ApprovalsScreen onBack={() => navigation.goBack()} />}
       </AppStack.Screen>
 
       <AppStack.Screen name="EditarFamilia">

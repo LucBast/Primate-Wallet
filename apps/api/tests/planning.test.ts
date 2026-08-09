@@ -107,13 +107,35 @@ let keyCounter = 0;
 const key = (prefix: string): string =>
   `${prefix}-teste-${(keyCounter += 1).toString().padStart(8, '0')}`;
 
+/**
+ * Datas relativas a hoje, não fixas no calendário.
+ *
+ * A conta a pagar deste arquivo vencia em 2026-08-08. No dia 2026-08-09 o teste
+ * quebrou sozinho, sem nenhuma mudança no produto: "vencido" é DERIVADO da data
+ * de hoje no fuso da família (docs/04 §7), então uma data fixa vira uma bomba de
+ * relógio. Três dias à frente mantém a conta em aberto em qualquer fuso.
+ */
+function isoDay(offsetDays: number): string {
+  const day = new Date();
+  day.setUTCDate(day.getUTCDate() + offsetDays);
+  return day.toISOString().slice(0, 10);
+}
+
+const DUE_DATE = isoDay(3);
+const MONTH_FROM = `${DUE_DATE.slice(0, 7)}-01`;
+/** Último dia do mês do vencimento: dia 0 do mês seguinte. */
+const MONTH_TO = (() => {
+  const [year, month] = DUE_DATE.split('-').map(Number);
+  return new Date(Date.UTC(year ?? 0, month ?? 1, 0)).toISOString().slice(0, 10);
+})();
+
 function payable(base: Base, overrides: Record<string, unknown> = {}) {
   return {
     nature: 'PAYABLE',
     description: 'Energia elétrica',
     originalAmountMinor: 31_240,
-    competenceDate: '2026-08-01',
-    dueDate: '2026-08-08',
+    competenceDate: MONTH_FROM,
+    dueDate: DUE_DATE,
     expectedAccountId: base.accountId,
     memberId: base.memberId,
     categoryId: base.categoryId,
@@ -143,7 +165,7 @@ describe('conta a pagar', () => {
 
     const list = await get(
       base,
-      `/households/${base.householdId}/planned-entries?nature=PAYABLE&from=2026-08-01&to=2026-08-31`,
+      `/households/${base.householdId}/planned-entries?nature=PAYABLE&from=${MONTH_FROM}&to=${MONTH_TO}`,
     );
     expect(list.json().items).toHaveLength(1);
     expect(list.json().summary).toMatchObject({
@@ -220,7 +242,7 @@ describe('conta a pagar', () => {
 
     const list = await get(
       base,
-      `/households/${base.householdId}/planned-entries?nature=PAYABLE&from=2026-08-01&to=2026-08-31`,
+      `/households/${base.householdId}/planned-entries?nature=PAYABLE&from=${MONTH_FROM}&to=${MONTH_TO}`,
     );
     const descriptions = list.json().items.map((item: { description: string }) => item.description);
     expect(descriptions).toContain('Atrasada');

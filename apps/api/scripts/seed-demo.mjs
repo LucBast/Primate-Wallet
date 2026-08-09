@@ -86,7 +86,15 @@ async function main() {
 
   for (const convite of [
     { email: 'bruno@email.com', displayName: 'Bruno', role: 'ADULT', isSupervised: false },
-    { email: 'caio@email.com', displayName: 'Caio', role: 'CHILD', isSupervised: true },
+    {
+      email: 'caio@email.com',
+      displayName: 'Caio',
+      role: 'CHILD',
+      isSupervised: true,
+      // A regra da 3a e da 3c: "aprovação acima de R$ 50,00".
+      approvalMode: 'ABOVE_THRESHOLD',
+      approvalThresholdMinor: 50_00,
+    },
   ]) {
     await api('POST', rota('/invitations'), { token: ana, body: convite });
   }
@@ -99,6 +107,18 @@ async function main() {
         AND p.name = m.display_name`,
     [hh],
   );
+
+  // Os convites do Bruno e do Caio foram consumidos pelo atalho acima; sem
+  // apagá-los, a 3a mostrava "Convites pendentes · 2" com gente que já é membro.
+  await admin.query(
+    `DELETE FROM invitations WHERE household_id = $1 AND accepted_at IS NULL`,
+    [hh],
+  );
+  // O convite pendente que a 3a mostra é o do tio Rafael, ainda sem aceite.
+  await api('POST', rota('/invitations'), {
+    token: ana,
+    body: { email: 'tio.rafael@email.com', displayName: 'Rafael', role: 'ADULT' },
+  });
 
   const membros = await api('GET', rota('/members'), { token: ana });
   const lista = membros.items ?? membros;
@@ -162,6 +182,14 @@ async function main() {
     openingBalanceMinor: 10_100,
     openingBalanceDate: D(1),
     primaryMemberId: anaId,
+  });
+  // A conta do Caio na 3c: "Mesada digital — Caio", saldo R$ 1.000,00.
+  const mesada = await conta({
+    name: 'Mesada digital — Caio',
+    accountType: 'DIGITAL_WALLET',
+    openingBalanceMinor: 100_000,
+    openingBalanceDate: D(1),
+    primaryMemberId: caioId,
   });
   const cartao = await conta({
     name: 'Cartão Azul',
@@ -278,6 +306,31 @@ async function main() {
       },
     });
   }
+
+  console.log('Criando o pedido de aprovação pendente…');
+  // O Caio só lança na conta dele — é o que a RLS exige de filho supervisionado.
+  await api('PUT', rota(`/members/${caioId}/account-permissions`), {
+    token: ana,
+    body: {
+      permissions: [{ accountId: mesada, canView: true, canTransact: true, canEdit: false }],
+    },
+  });
+  // Lançado PELO Caio: é o pedido dele que a 3c mostra para a Ana decidir.
+  const caioSessao = await api('POST', '/auth/login', {
+    body: { email: 'caio@email.com', password: SENHA, device: device('Caio') },
+  });
+  await api('POST', rota('/expenses'), {
+    token: caioSessao.accessToken,
+    body: {
+      description: 'Jogo online — presente amigo',
+      amountMinor: 89_90,
+      accountId: mesada,
+      memberId: caioId,
+      categoryId: cats['Lazer'],
+      source: 'BOTTOM_ACTION',
+      idempotencyKey: randomUUID(),
+    },
+  });
 
   console.log(`\nPronto. Família ${hh}`);
   console.log(`Entre no app com ana@email.com / ${SENHA}`);

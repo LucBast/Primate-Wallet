@@ -28,7 +28,7 @@ export async function createTestContext(
   const { app } = await buildServer({
     config,
     db,
-    logger: pino({ level: 'silent' }),
+    logger: pino({ level: process.env['TEST_LOG'] === '1' ? 'error' : 'silent' }),
     mailer,
     ...(options.enableRateLimit === undefined ? {} : { enableRateLimit: options.enableRateLimit }),
   });

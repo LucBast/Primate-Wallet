@@ -17,6 +17,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Pressable, RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { Invitation, Member } from '@ff/api-contracts';
+import { Badge } from '../../components/Badge';
 import { Avatar } from '../../components/Avatar';
 import { Button } from '../../components/Button';
 import { Card, ListRow, SectionLabel } from '../../components/Card';
@@ -29,6 +30,7 @@ import { formatMoney, minor } from '@ff/domain';
 import { ApiRequestError } from '../../services/api-client';
 import { useSessionStore } from '../auth/session-store';
 import * as api from './household-api';
+import * as approvalApi from './approval-api';
 import { useActiveHousehold } from './household-store';
 import { ROLE_LABEL, ROLE_TONE } from './roles';
 
@@ -61,6 +63,7 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
 
   const [members, setMembers] = useState<Member[] | null>(null);
   const [invitations, setInvitations] = useState<Invitation[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState(0);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
 
@@ -77,6 +80,11 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
       if (canManage) {
         setInvitations(await api.listInvitations(accessToken, household.id));
       }
+      // O selo "● 1 aguardando" da 3a: a contagem vem junto da lista, para não
+      // custar uma segunda chamada só para desenhar um número.
+      setPendingApprovals(
+        (await approvalApi.listApprovals(accessToken, household.id, 'PENDING')).pendingCount,
+      );
     } catch (cause) {
       setError(
         cause instanceof ApiRequestError
@@ -220,7 +228,18 @@ export function FamilyScreen(props: FamilyScreenProps): React.JSX.Element {
               first
               title="Aprovações pendentes"
               onPress={props.onOpenApprovals}
-              showChevron
+              // No screenshot esta linha traz o selo no lugar do chevron.
+              showChevron={pendingApprovals === 0}
+              right={
+                pendingApprovals === 0 ? undefined : (
+                  <Badge
+                    dot
+                    tone="pending"
+                    testID="selo-aprovacoes"
+                    label={`${pendingApprovals} aguardando`}
+                  />
+                )
+              }
               testID="link-aprovacoes"
             />
             <ListRow
