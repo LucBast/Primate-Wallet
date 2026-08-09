@@ -2,8 +2,8 @@
 
 ## Status geral
 
-- Fase atual: **Fase 11 — Qualidade e hardening**
-- Fases concluídas: **0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10**
+- Fase atual: **Fase 12 — Publicação (o que não depende de conta de loja está feito)**
+- Fases concluídas: **0 a 11**
 - Última atualização: 2026-08-09
 - Responsável: Claude Code
 - Repositório: https://github.com/LucBast/Primate-Wallet (branch `main`)
@@ -526,11 +526,34 @@ Dois defeitos que este ciclo achou, os dois em componentes já "aprovados": a `B
 sobrepunha a ação ao texto quando a mensagem era longa (faltava `flexShrink`), e o
 rótulo de ação era decorativo — não tinha toque nenhum ligado.
 
-## Pendente
+### Fase 11 — Qualidade e hardening
 
-- **Fase 11 — Qualidade e hardening**: cobertura, E2E, acessibilidade, performance,
-  segurança, device testing, recovery, runbooks.
-- **Fase 12 — Publicação**: documentos legais, store assets, beta, release, smoke tests.
+E2E dos 15 fluxos de docs/13 §5 num teste narrativo, com o saldo conferido em
+centavos a cada passo. Cobertura com piso no CI (linhas 92,2%, funções 92,8%).
+Índice de cursor `(household_id, occurred_at DESC, id DESC)` — confirmado no
+`EXPLAIN` como Index Scan sem nó de Sort — e dois índices redundantes removidos.
+`docs/22-RUNBOOKS.md` cobre backup, restauração, migração, revogação,
+recuperação de acesso, diagnóstico por `request_id`, fila de sync parada e
+rotação de segredos.
+
+O varrimento de acessibilidade achou um defeito maior do que procurava:
+**"Esqueci a senha" chamava o mesmo handler do link mágico**. A pessoa pedia
+para trocar a senha e recebia um link de entrada. "Recuperação de acesso" é tela
+obrigatória do pacote (docs/07 §3) e não existia. Agora tem endpoint próprio,
+resposta neutra, token de uso único de 60 minutos, tela de senha nova por deep
+link, e a redefinição derruba todas as outras sessões.
+
+### Fase 12 — Publicação
+
+`docs/23-STORE.md` (ficha das duas lojas, classificação, declarações de coleta e
+justificativas de permissão), `docs/legal/` (minutas de política de privacidade e
+termos, conferidas contra o código e marcadas para revisão jurídica),
+`docs/24-RELEASE-CHECKLIST.md` (status real item a item) e o smoke test pós-release,
+9/9 verde no ambiente local. Removida do `Info.plist` a permissão de localização
+que vinha do template e nunca foi usada — declarar permissão que não se usa é
+motivo de recusa na App Store.
+
+## Pendente
 
 ## Defeito CORRIGIDO — compra em cartão não entrava na fatura
 
@@ -607,46 +630,44 @@ anterior até o fechamento, inclusive.
 
 ## Bloqueios
 
-1. **Gate visual do iOS e do tema escuro** — o Android está destravado e rodando; iOS
-   exige macOS/Xcode, que não existe aqui. O tema escuro (5b) dá para medir no próprio
-   emulador e ainda não foi feito.
-2. **Os testes da API truncam o banco de DESENVOLVIMENTO.** `tests/helpers.ts` roda
-   `TRUNCATE … CASCADE` usando o mesmo `DATABASE_*` do `.env`, então `npm run verify`
-   apaga o seed de demonstração no meio de uma sessão de gate visual. Contorno atual:
-   rodar `npm run seed:demo --workspace @ff/api` de novo. Correção de verdade: um banco
-   `family_finance_test` separado, com `.env.test` próprio.
-3. **Referências visuais pendentes com o design** — as 7 telas sem screenshot e as 3
-   perguntas pontuais da 6a/3a foram truncadas no envio e precisam ser reenviadas
-   (ver `design/CLARIFICATIONS-01.md`, itens 5 e 6).
-4. **Provedor de e-mail transacional** — segredo externo. A porta `Mailer` está pronta;
-   em desenvolvimento o link vai para o log.
-3. **Bucket S3-compatível para anexos** — registro e caminho escopado prontos; falta o
-   provedor e a URL assinada.
-4. **Contas de loja, DSN do Sentry, FCM/APNs** — Fases 11 e 12.
+O status item a item do checklist de release está em `docs/24-RELEASE-CHECKLIST.md`.
+Aqui ficam só os que impedem chamar o projeto de pronto.
+
+### Resolvíveis por código, nesta máquina
+
+1. **Tema escuro em 12 telas** — 2b, 2c, 2d, 2e, 3d, 4b, 4c, 6a, 8a, 8b, 8e, 8f.
+   As 15 já reconferidas passaram; o ferramental está pronto e o custo por tela é
+   baixo. Não marco como feito o que não medi: foi confiando nessa expectativa,
+   na primeira passada pela 1b, que o defeito do `surfaceElevated` escapou.
+2. **Atalhos do ícone** (docs/12, telas 6c) — o lançamento rápido existe; falta
+   expor os atalhos e retomar a intenção depois do login.
+3. **Jobs de recorrência e notificação agendada** — a recorrência pura está em
+   `@ff/domain`; falta quem a dispare no fuso da família.
+
+### Bloqueios de responsabilidade humana
+
+Nenhum destes sai por código, e todos estão registrados também em
+`docs/23-STORE.md`:
+
+1. **macOS com Xcode** — build e gate visual do iOS.
+2. **Contas de loja** (App Store Connect, Play Console) e certificados.
+3. **Revisão jurídica** das minutas em `docs/legal/`.
+4. **Provedor de e-mail transacional** — a porta `Mailer` está pronta; em
+   desenvolvimento o link vai para o log.
+5. **Bucket S3-compatível** para anexos — registro e caminho escopado prontos.
+6. **DSN do Sentry** e infraestrutura de homologação e produção.
+7. **FCM/APNs** para push.
+8. **Aparelhos reais** para teste de dispositivo e leitor de tela.
+
+### Resolvidos desde o registro anterior
+
+- ~~Os testes truncavam o banco de desenvolvimento~~ — banco de teste próprio
+  (D-050).
+- ~~Gate do tema escuro não iniciado~~ — 15 telas reconferidas, e o caminho
+  achou o defeito do `surfaceElevated` e o do `maxHeight` do BottomSheet.
 
 ## Próxima ação exata
 
-**Terminar o gate visual antes de abrir a Fase 8.** O ferramental já existe e o custo
-por tela agora é baixo:
-
-1. `npm run db:up && npm run db:migrate`, `npm run dev --workspace @ff/api`,
-   `npm run seed:demo --workspace @ff/api`, `npm start --workspace @ff/mobile` e
-   `npm run android --workspace @ff/mobile`.
-2. Emulador em 390×844 dp: `adb shell wm size 1170x2532 && adb shell wm density 480`.
-3. Para cada tela: `adb exec-out screencap -p > tela.png`, medir com a varredura de
-   pixel descrita acima e comparar com `design/screenshots/`.
-4. Repetir tudo no tema escuro (5b).
-5. Decidir a fórmula do saldo consolidado (divergência aberta nº 1).
-
-Só então a **Fase 8 — Experiência rápida**:
-
-1. Tela 1c (`design/screenshots/1c-lancamento-rapido.png`): BottomSheet com segmented
-   ↓ Despesa | ↑ Receita | Mais ▾, MoneyInput 44 com teclado numérico interno,
-   SelectorChips de conta/categoria/membro/data, sugestões recentes, "Salvar" e
-   "Salvar e lançar outra". Meta: despesa simples em ≤ 10 s.
-2. Sugestões e recentes: endpoint que devolve os últimos favorecidos, categorias e
-   contas usados, para pré-preencher o formulário.
-3. Deep links e atalhos do ícone (telas 6c): `familyfinance://quick/despesa` etc.,
-   com retomada de intenção após login.
-4. Notificações (tela 6d): tabela `notifications`, preferências por tipo, central no
-   app e jobs de vencimento/fatura no fuso da família.
+1. Fechar o tema escuro nas 12 telas listadas acima, na ordem em que aparecem.
+2. Atalhos do ícone (6c) e jobs agendados.
+3. Entregar os bloqueios humanos a quem os destrava.

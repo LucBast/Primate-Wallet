@@ -16,7 +16,8 @@
     "migrate:reset": "node scripts/migrate.mjs reset",
     "db:test:prepare": "node scripts/create-test-db.mjs",
     "seed:demo": "node scripts/seed-demo.mjs",
-    "test:coverage": "vitest run --coverage"
+    "test:coverage": "vitest run --coverage",
+    "smoke": "node scripts/smoke.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",
