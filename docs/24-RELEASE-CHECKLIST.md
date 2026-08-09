@@ -19,7 +19,7 @@ teste automatizado passando, medição de pixel, ou verificação manual registr
 | --- | --- | --- |
 | Design system completo | ✓ | `src/design-system/`, tokens verbatim, lint proíbe literal de cor |
 | Tema claro | ✓ | 26 telas medidas em pixel contra `design/screenshots/` |
-| Tema escuro | ⏳ | 21 telas reconferidas (1b–1g, 2a–2d, 3a–3d, aprovações, 4a, 4b, 8c, 8d, 8f, 8g). Faltam 2e, 4c, 6a, 8a, 8b, 8e |
+| Tema escuro | ✓ | **27 telas**, todas medidas no emulador. Achou o nono caso de `fixedColors` (o "F" da 6a), o limite fantasma da 8b e a 8e inalcançável |
 | Estados de loading | ✓ | `components/states.tsx`, usado em todas as listas |
 | Estados vazios | ✓ | idem |
 | Estados de erro | ✓ | idem |
@@ -142,13 +142,12 @@ Smoke test pós-release: ✓ implementado (`npm run smoke --workspace @ff/api`),
 
 **Resolvível por código (nesta máquina):**
 
-1. Tema escuro nas 6 telas restantes (2e, 4c, 6a, 8a, 8b, 8e).
-2. **Central de notificações (6d) e preferências** — hoje `PhasePlaceholder`.
+1. **Central de notificações (6d) e preferências** — hoje `PhasePlaceholder`.
    Precisa da tabela `notifications`, das preferências por tipo e da central no
    app. O envio em si depende de FCM/APNs, que é bloqueio humano, mas a tela e o
    registro das preferências não.
-3. Atalhos do ícone (docs/12, telas 6c).
-4. Jobs de recorrência e de notificação agendada.
+2. Atalhos do ícone (docs/12, telas 6c).
+3. Jobs de recorrência e de notificação agendada.
 
 **Bloqueios de responsabilidade humana** — nenhum destes sai por código:
 

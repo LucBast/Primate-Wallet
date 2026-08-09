@@ -35,7 +35,7 @@ import { Toggle } from '../../components/Toggle';
 import { Fingerprint } from 'lucide-react-native';
 import { Text } from '../../design-system/Text';
 import { useTheme } from '../../design-system/theme';
-import { loginLogo } from '../../design-system/spec-values';
+import { fixedColors, loginLogo } from '../../design-system/spec-values';
 import { ApiRequestError } from '../../services/api-client';
 import * as authApi from './auth-api';
 import { describeDevice } from './session-storage';
@@ -142,7 +142,11 @@ export function LoginScreen({ onCreateAccount }: LoginScreenProps): React.JSX.El
             },
           ]}
         >
-          <RNText style={[loginLogo.glyph, { color: colors.surfaceElevated }]}>F</RNText>
+          {/* Branco nos DOIS temas: o "F" está sobre o quadrado brand, e no
+              escuro `surfaceElevated` daria quase-preto sobre verde. É o mesmo
+              caso do `fixedColors.onBrand` já aplicado nos outros oito lugares —
+              este escapou por usar `RNText` direto, sem passar pelo tom. */}
+          <RNText style={[loginLogo.glyph, { color: fixedColors.onBrand }]}>F</RNText>
         </View>
 
         {/* 2. Nome e tagline */}

@@ -89,6 +89,10 @@ Registro das decisões tomadas durante a implementação, conforme o processo do
 | D-073 | Índice de cursor `(household_id, occurred_at DESC, id DESC)` substitui `(household_id, occurred_at DESC)` e `(household_id)` | A lista da 1g pagina por `(occurred_at, id) < (?, ?)`; sem o `id` no índice, todo grupo de movimentações do mesmo instante precisava de um sort extra. E `household_id` sozinho era prefixo do composto — nunca escolhido, só custando escrita. Confirmado no plano: Index Scan sem nó de Sort. |
 | D-074 | Piso de cobertura no vitest da API, logo abaixo do medido | Piso, não meta: serve para uma QUEDA aparecer como falha no CI. Ramos tem o piso mais baixo porque boa parte deles são guardas de erro de driver que o teste não provoca sem trapaça. |
 
+| D-075 | O "F" do logotipo da 6a usa `fixedColors.onBrand`, não `colors.surfaceElevated` | Nono caso da mesma família de defeito, e o que escapou da varredura anterior: os outros oito usavam o componente `Text` com `tone`, este usava `RNText` direto. No escuro o glifo saía #201F1D sobre verde — quase preto sobre verde. Medido antes e depois no mesmo pixel. |
+| D-076 | O limite de aprovação da 8b é VALOR padrão (R$ 50,00), não placeholder | O campo nascia vazio com "R$ 50,00" só no placeholder: o campo dizia cinquenta, a prévia dizia "acima de R$ 0,00" e o convite saía com limite ZERO — toda despesa do filho exigindo aprovação, enquanto a tela prometia o contrário. Prévia e payload passam a ler a mesma fonte. |
+| D-077 | O botão "Transferir" da 2c aponta para a `TransferScreen` | Ele navegava para o placeholder genérico de "fase seguinte", deixando uma tela existente desde a Fase 4 inalcançável pelo caminho natural. O mesmo destino já funcionava pelo lançamento rápido, o que escondeu a falha. |
+
 ## Decisões que exigem validação humana antes de produção
 
 - Provedor de e-mail transacional (envio de confirmação e magic link).

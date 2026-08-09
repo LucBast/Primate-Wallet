@@ -316,7 +316,10 @@ function AppFlow(): React.JSX.Element {
           <AccountDetailScreen
             account={route.params.account}
             onBack={() => navigation.goBack()}
-            onTransfer={() => navigation.navigate('EmConstrucao', { destination: 'Transferencia' })}
+            // A TransferScreen existe desde a Fase 4; este botão ainda apontava
+            // para o placeholder de "fase seguinte", deixando a tela inteira
+            // inalcançável pelo caminho natural (2c → Transferir).
+            onTransfer={() => navigation.navigate('Transferencia')}
             onPermissions={() => navigation.navigate('Familia')}
           />
         )}

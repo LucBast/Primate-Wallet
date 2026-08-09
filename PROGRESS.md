@@ -635,17 +635,13 @@ Aqui ficam só os que impedem chamar o projeto de pronto.
 
 ### Resolvíveis por código, nesta máquina
 
-1. **Tema escuro em 6 telas** — 2e, 4c, 6a, 8a, 8b, 8e. As 21 já reconferidas passaram.
-   As 15 já reconferidas passaram; o ferramental está pronto e o custo por tela é
-   baixo. Não marco como feito o que não medi: foi confiando nessa expectativa,
-   na primeira passada pela 1b, que o defeito do `surfaceElevated` escapou.
-2. **Central de notificações (6d) e preferências** — as duas telas de
+1. **Central de notificações (6d) e preferências** — as duas telas de
    "Aparência, notificações e privacidade" ainda são `PhasePlaceholder`. Faltam a
    tabela `notifications`, as preferências por tipo e a central no app; só o
    ENVIO depende de FCM/APNs.
-3. **Atalhos do ícone** (docs/12, telas 6c) — o lançamento rápido existe; falta
+2. **Atalhos do ícone** (docs/12, telas 6c) — o lançamento rápido existe; falta
    expor os atalhos e retomar a intenção depois do login.
-4. **Jobs de recorrência e notificação agendada** — a recorrência pura está em
+3. **Jobs de recorrência e notificação agendada** — a recorrência pura está em
    `@ff/domain`; falta quem a dispare no fuso da família.
 
 ### Bloqueios de responsabilidade humana
@@ -663,15 +659,32 @@ Nenhum destes sai por código, e todos estão registrados também em
 7. **FCM/APNs** para push.
 8. **Aparelhos reais** para teste de dispositivo e leitor de tela.
 
+### Gate do tema escuro — FECHADO
+
+As **27 telas** foram medidas no emulador em tema escuro. O caminho achou quatro
+defeitos, nenhum deles de cor pura:
+
+- o **nono** caso de `fixedColors`: o "F" do logotipo da 6a saía #201F1D sobre
+  verde. Escapou da varredura anterior por usar `RNText` direto, sem passar pelo
+  `tone` do componente `Text`;
+- a 8b mostrava "R$ 50,00" como PLACEHOLDER: a prévia dizia "acima de R$ 0,00" e
+  o convite saía com limite ZERO — toda despesa do filho exigindo aprovação,
+  enquanto a tela prometia o contrário;
+- o botão "Transferir" da 2c ia para o placeholder de "fase seguinte", deixando
+  a `TransferScreen` (existente desde a Fase 4) inalcançável pelo caminho natural;
+- a auditoria mostrava "Alguém" para todo mundo menos você, e jogava o enum em
+  inglês na tela quando a ação não tinha frase escrita.
+
 ### Resolvidos desde o registro anterior
 
 - ~~Os testes truncavam o banco de desenvolvimento~~ — banco de teste próprio
   (D-050).
-- ~~Gate do tema escuro não iniciado~~ — 15 telas reconferidas, e o caminho
-  achou o defeito do `surfaceElevated` e o do `maxHeight` do BottomSheet.
+- ~~Gate do tema escuro não iniciado~~ — **as 27 telas fechadas**, com quatro
+  defeitos achados no caminho (acima), além do `surfaceElevated` e do `maxHeight`
+  do BottomSheet encontrados nas primeiras passadas.
 
 ## Próxima ação exata
 
-1. Fechar o tema escuro nas 12 telas listadas acima, na ordem em que aparecem.
+1. Central de notificações (6d) e preferências por tipo.
 2. Atalhos do ícone (6c) e jobs agendados.
 3. Entregar os bloqueios humanos a quem os destrava.

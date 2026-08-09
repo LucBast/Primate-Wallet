@@ -27,7 +27,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import type { InvitableRole } from '@ff/api-contracts';
-import { formatMoney, parseMoney } from '@ff/domain';
+import { formatMoney, minor, parseMoney } from '@ff/domain';
 import { Banner } from '../../components/Banner';
 import { Button } from '../../components/Button';
 import { Card, SectionLabel } from '../../components/Card';
@@ -64,6 +64,20 @@ const APPROVAL_OPTIONS: ReadonlyArray<{ value: ApprovalMode; label: string }> = 
   { value: 'ABOVE_THRESHOLD', label: 'acima de um valor' },
 ];
 
+/**
+ * R$ 50,00 é VALOR, não placeholder.
+ *
+ * O campo nascia vazio, com "R$ 50,00" só no placeholder. O resultado eram três
+ * leituras diferentes do mesmo número na mesma tela: o campo dizia cinquenta
+ * reais, a prévia dizia "gastos acima de R$ 0,00", e o convite saía com limite
+ * ZERO — isto é, TODA despesa do filho passaria a exigir aprovação, enquanto a
+ * tela prometia que só as acima de cinquenta.
+ *
+ * A 8b escreve `Valor limite sem aprovação · R$ 50,00` como linha de valor, e é
+ * assim que ele passa a se comportar.
+ */
+const LIMITE_PADRAO_MINOR = 50_00;
+
 export function InviteMemberScreen({
   onBack,
   onInvited,
@@ -81,7 +95,7 @@ export function InviteMemberScreen({
   const [role, setRole] = useState<InvitableRole>('MEMBER');
   const [supervised, setSupervised] = useState(true);
   const [approvalMode, setApprovalMode] = useState<ApprovalMode>('ABOVE_THRESHOLD');
-  const [thresholdText, setThresholdText] = useState('');
+  const [thresholdText, setThresholdText] = useState(formatMoney(minor(LIMITE_PADRAO_MINOR)));
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -143,7 +157,10 @@ export function InviteMemberScreen({
     const base = `${quem} entra como ${papel} na ${casa}. Poderá lançar nas contas que você autorizar em Permissões`;
     if (!isSupervised || approvalMode === 'NEVER') return `${base}.`;
     if (approvalMode === 'ALWAYS') return `${base}; todo lançamento fica ● Aguardando aprovação.`;
-    const limite = thresholdText === '' ? 'R$ 0,00' : formatMoney(parseMoney(thresholdText));
+    // A prévia lê o MESMO valor que vai no convite. Campo apagado significa
+    // zero de verdade — e a frase diz isso, em vez de mostrar um número que a
+    // pessoa não escolheu.
+    const limite = formatMoney(minor(parseMoney(thresholdText)));
     return `${base}; gastos acima de ${limite} ficam ● Aguardando aprovação.`;
   })();
 
