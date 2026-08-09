@@ -13,6 +13,7 @@
 import { DomainError } from '@ff/domain';
 import {
   NEUTRAL_MAGIC_LINK_MESSAGE,
+  NEUTRAL_PASSWORD_RESET_MESSAGE,
   NEUTRAL_REGISTER_MESSAGE,
   type DeviceInfo,
   type LoginRequest,
@@ -39,6 +40,14 @@ const MAX_FAILED_LOGINS = 8;
 const ACCOUNT_LOCK_MINUTES = 15;
 const EMAIL_TOKEN_TTL_MINUTES = 60;
 const MAGIC_LINK_TTL_MINUTES = 15;
+/**
+ * Redefinição de senha vale mais que o magic link, e de propósito.
+ *
+ * O link de acesso é usado na hora; o de senha nova costuma ser aberto depois,
+ * às vezes em outro aparelho. Quinze minutos transformariam a recuperação numa
+ * corrida contra o relógio, e a pessoa pediria um link atrás do outro.
+ */
+const PASSWORD_RESET_TTL_MINUTES = 60;
 
 export type RequestContext = {
   readonly requestId: string;
@@ -293,6 +302,85 @@ export function createAuthService(deps: AuthServiceDeps) {
       });
 
       return { status: 'ACCEPTED', message: NEUTRAL_MAGIC_LINK_MESSAGE };
+    },
+
+    /**
+     * Recuperação de acesso (docs/07 §3), passo 1.
+     *
+     * Resposta neutra: e-mail cadastrado e não cadastrado devolvem exatamente a
+     * mesma coisa, senão a tela vira um verificador de quem tem conta aqui.
+     */
+    async requestPasswordReset(email: string, ctx: RequestContext): Promise<NeutralAccepted> {
+      await withAuthTransaction(db, async (client) => {
+        const profile = await repo.findProfileByEmail(client, email);
+        if (!profile) return;
+
+        // Pedir de novo invalida o anterior: um link por vez.
+        await repo.invalidatePendingTokens(client, profile.id, 'PASSWORD_RESET');
+        const { token, tokenHash } = createSingleUseToken();
+        await repo.insertAuthToken(client, {
+          userId: profile.id,
+          purpose: 'PASSWORD_RESET',
+          tokenHash,
+          expiresAt: minutesFromNow(PASSWORD_RESET_TTL_MINUTES),
+          requestedIp: ctx.ip,
+        });
+        await repo.insertAuditLog(client, {
+          actorUserId: profile.id,
+          entityType: 'profile',
+          entityId: profile.id,
+          action: 'PASSWORD_RESET_REQUESTED',
+          metadata: { ip: ctx.ip },
+          requestId: ctx.requestId,
+        });
+        await mailer.send({
+          to: profile.email,
+          subject: 'Criar uma senha nova',
+          body: `Use o link para criar uma senha nova. Ele vale por ${PASSWORD_RESET_TTL_MINUTES} minutos.`,
+          link: `${appLinkBase}/senha-nova?token=${token}`,
+        });
+      });
+
+      return { status: 'ACCEPTED', message: NEUTRAL_PASSWORD_RESET_MESSAGE };
+    },
+
+    /**
+     * Passo 2: troca a senha e DERRUBA todas as outras sessões.
+     *
+     * Quem redefine a senha costuma estar reagindo a um acesso indevido. Manter
+     * as sessões antigas vivas deixaria o invasor dentro da conta com a senha
+     * nova recém-criada. É a mesma razão de o e-mail ser marcado como
+     * verificado: abrir o link do e-mail prova a posse dele.
+     */
+    async consumePasswordReset(
+      token: string,
+      password: string,
+      device: DeviceInfo,
+      ctx: RequestContext,
+    ): Promise<Session> {
+      return withAuthTransaction(db, async (client) => {
+        const consumed = await repo.consumeAuthToken(client, sha256(token), 'PASSWORD_RESET');
+        if (!consumed) throw new DomainError('TOKEN_INVALID');
+
+        const profile = await repo.findProfileById(client, consumed.user_id);
+        if (!profile) throw new DomainError('TOKEN_INVALID');
+
+        await repo.updatePassword(client, profile.id, await hashPassword(password));
+        await repo.markEmailVerified(client, profile.id);
+        const revogadas = await repo.revokeAllDevices(client, profile.id, 'PASSWORD_RESET');
+
+        await repo.insertAuditLog(client, {
+          actorUserId: profile.id,
+          entityType: 'profile',
+          entityId: profile.id,
+          action: 'PASSWORD_RESET_COMPLETED',
+          metadata: { revokedSessions: revogadas, ip: ctx.ip },
+          requestId: ctx.requestId,
+        });
+
+        await repo.recordLoginSuccess(client, profile.id);
+        return issueSession(client, { ...profile, email_verified_at: new Date() }, device);
+      });
     },
 
     async consumeMagicLink(

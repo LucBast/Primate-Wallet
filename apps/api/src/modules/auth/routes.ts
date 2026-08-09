@@ -10,6 +10,8 @@ import {
   logoutRequestSchema,
   magicLinkConsumeSchema,
   magicLinkRequestSchema,
+  passwordResetConsumeSchema,
+  passwordResetRequestSchema,
   refreshRequestSchema,
   registerRequestSchema,
   verifyEmailRequestSchema,
@@ -67,6 +69,23 @@ export async function registerAuthRoutes(
     const input = magicLinkConsumeSchema.parse(request.body);
     const session = await deps.auth.consumeMagicLink(input.token, input.device, contextOf(request));
     return reply.status(200).send(session);
+  });
+
+  app.post('/auth/password-reset', strictRateLimit, async (request, reply) => {
+    const { email } = passwordResetRequestSchema.parse(request.body);
+    return reply.status(202).send(await deps.auth.requestPasswordReset(email, contextOf(request)));
+  });
+
+  app.post('/auth/password-reset/consume', strictRateLimit, async (request, reply) => {
+    const input = passwordResetConsumeSchema.parse(request.body);
+    return reply.send(
+      await deps.auth.consumePasswordReset(
+        input.token,
+        input.password,
+        input.device,
+        contextOf(request),
+      ),
+    );
   });
 
   app.post('/auth/refresh', async (request, reply) => {

@@ -281,6 +281,39 @@ export async function revokeDevice(
   return (result.rowCount ?? 0) > 0;
 }
 
+/**
+ * Derruba TODAS as sessões da pessoa e devolve quantas caíram.
+ *
+ * Usado na redefinição de senha: quem redefine costuma estar reagindo a um
+ * acesso indevido, e manter as sessões antigas vivas deixaria o invasor dentro
+ * da conta com a senha nova.
+ */
+export async function revokeAllDevices(
+  client: PoolClient,
+  userId: string,
+  reason: string,
+): Promise<number> {
+  const result = await client.query(
+    `UPDATE devices
+     SET revoked_at = now(), revoked_reason = $2, refresh_token_hash = NULL
+     WHERE user_id = $1 AND revoked_at IS NULL`,
+    [userId, reason],
+  );
+  return result.rowCount ?? 0;
+}
+
+/** Troca a senha; o hash já chega pronto do serviço. */
+export async function updatePassword(
+  client: PoolClient,
+  userId: string,
+  passwordHash: string,
+): Promise<void> {
+  await client.query('UPDATE profiles SET password_hash = $2, updated_at = now() WHERE id = $1', [
+    userId,
+    passwordHash,
+  ]);
+}
+
 export async function listActiveDevices(
   client: PoolClient,
   userId: string,

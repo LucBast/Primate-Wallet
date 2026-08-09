@@ -44,6 +44,29 @@ export async function consumeMagicLink(token: string, device: DeviceInfo): Promi
   );
 }
 
+/**
+ * Recuperação de acesso (docs/07 §3). Resposta neutra: o app NÃO diz se o
+ * e-mail existe, e a tela mostra a mesma mensagem nos dois casos.
+ */
+export async function requestPasswordReset(email: string): Promise<NeutralAccepted> {
+  return neutralAcceptedSchema.parse(
+    await request('/auth/password-reset', { method: 'POST', body: { email } }),
+  );
+}
+
+export async function consumePasswordReset(
+  token: string,
+  password: string,
+  device: DeviceInfo,
+): Promise<Session> {
+  return sessionSchema.parse(
+    await request('/auth/password-reset/consume', {
+      method: 'POST',
+      body: { token, password, device },
+    }),
+  );
+}
+
 export async function verifyEmail(token: string, device: DeviceInfo): Promise<Session> {
   return sessionSchema.parse(
     await request('/auth/verify-email', { method: 'POST', body: { token, device } }),

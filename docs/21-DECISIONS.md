@@ -82,6 +82,13 @@ Registro das decisões tomadas durante a implementação, conforme o processo do
 | D-068 | Operações que docs/11 §1 proíbe offline devolvem `OFFLINE_OPERATION_REJECTED`, e não o genérico "sem conexão" | Elas NÃO vão para o outbox. A pessoa precisa saber que o comando não ficou guardado esperando a rede — do contrário esperaria por uma baixa que nunca foi enviada. |
 | D-062 | As datas dos testes de planejamento são relativas a hoje | `dueDate: '2026-08-08'` quebrou sozinho em 2026-08-09: "vencido" é derivado da data de hoje no fuso da família, então data fixa em teste é bomba de relógio. |
 
+| D-069 | "Esqueci a senha" passa a ter recuperação de acesso de verdade | O link chamava o MESMO handler do magic link: a pessoa pedia para trocar a senha e recebia um link de entrada, sem nunca poder trocar. "Recuperação de acesso" é tela obrigatória do pacote (docs/07 §3) e não existia. Achado no varrimento de acessibilidade da Fase 11, olhando `onPress` de links. |
+| D-070 | Redefinir senha **derruba todas as sessões** | Quem redefine costuma estar reagindo a um acesso indevido; manter as sessões vivas deixaria o invasor dentro da conta com a senha nova. |
+| D-071 | O link de senha nova vale 60 minutos, contra 15 do magic link | O de acesso é usado na hora; o de senha nova costuma ser aberto depois, às vezes em outro aparelho. Quinze minutos virariam corrida contra o relógio e a pessoa pediria um link atrás do outro. |
+| D-072 | A tela de senha nova tem UM campo, com "mostrar", em vez de senha + confirmação | Confirmar em dois campos faz a pessoa colar o mesmo erro duas vezes; poder ver o que digitou resolve de verdade. Sem screenshot no pacote, montada com os blocos da 6a (regra 8 do CLAUDE.md). |
+| D-073 | Índice de cursor `(household_id, occurred_at DESC, id DESC)` substitui `(household_id, occurred_at DESC)` e `(household_id)` | A lista da 1g pagina por `(occurred_at, id) < (?, ?)`; sem o `id` no índice, todo grupo de movimentações do mesmo instante precisava de um sort extra. E `household_id` sozinho era prefixo do composto — nunca escolhido, só custando escrita. Confirmado no plano: Index Scan sem nó de Sort. |
+| D-074 | Piso de cobertura no vitest da API, logo abaixo do medido | Piso, não meta: serve para uma QUEDA aparecer como falha no CI. Ramos tem o piso mais baixo porque boa parte deles são guardas de erro de driver que o teste não provoca sem trapaça. |
+
 ## Decisões que exigem validação humana antes de produção
 
 - Provedor de e-mail transacional (envio de confirmação e magic link).

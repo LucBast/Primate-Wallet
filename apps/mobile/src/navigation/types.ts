@@ -17,6 +17,7 @@ export type AuthStackParamList = {
   CriarConta: undefined;
   /** Chegada por link mágico ou confirmação de e-mail. */
   Token: { token: string; purpose: 'MAGIC_LINK' | 'EMAIL_VERIFICATION' };
+  SenhaNova: { token: string };
 };
 
 export type AppStackParamList = {

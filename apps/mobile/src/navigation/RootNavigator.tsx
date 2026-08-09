@@ -21,6 +21,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { useTheme } from '../design-system/theme';
 import { LoginScreen } from '../features/auth/LoginScreen';
 import { CreateAccountScreen } from '../features/auth/CreateAccountScreen';
+import { NewPasswordScreen } from '../features/auth/NewPasswordScreen';
 import { TokenLandingScreen } from '../features/auth/TokenLandingScreen';
 import { SessionsScreen } from '../features/auth/SessionsScreen';
 import { useSessionStore } from '../features/auth/session-store';
@@ -75,12 +76,15 @@ const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
 /**
  * Deep links do doc 12. `entrar?token=` (link mágico) e `verificar-email?token=`
  * chegam pela mesma tela de aterrissagem, que troca o token por uma sessão.
+ * `senha-nova?token=` é diferente: ali o token não vira sessão sozinho, porque
+ * ainda falta a pessoa escolher a senha.
  */
 const linking: LinkingOptions<ParamListBase> = {
   prefixes: [`${appConfig.deepLinkScheme}://`],
   config: {
     screens: {
       Login: 'login',
+      SenhaNova: 'senha-nova',
       CriarConta: 'criar-conta',
       Convite: 'convite',
       Familia: 'familia',
@@ -102,6 +106,7 @@ function AuthFlow(): React.JSX.Element {
         {({ navigation }) => <CreateAccountScreen onBack={() => navigation.goBack()} />}
       </AuthStack.Screen>
       <AuthStack.Screen name="Token" component={TokenLandingScreen} />
+      <AuthStack.Screen name="SenhaNova" component={NewPasswordScreen} />
     </AuthStack.Navigator>
   );
 }

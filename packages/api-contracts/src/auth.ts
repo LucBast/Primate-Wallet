@@ -66,6 +66,22 @@ export const NEUTRAL_REGISTER_MESSAGE =
   'Se este e-mail estiver disponível, enviamos as instruções de confirmação.';
 export const NEUTRAL_MAGIC_LINK_MESSAGE =
   'Se este e-mail estiver cadastrado, enviamos um link de acesso.';
+export const NEUTRAL_PASSWORD_RESET_MESSAGE =
+  'Se este e-mail estiver cadastrado, enviamos as instruções para criar uma senha nova.';
+
+// ----------------------------------------------------- recuperação de acesso
+// Tela obrigatória do pacote (docs/07 §3, "Recuperação de acesso"). A resposta
+// é neutra pelo mesmo motivo do cadastro: não revelar quem tem conta.
+
+export const passwordResetRequestSchema = z.object({ email: emailSchema });
+export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;
+
+export const passwordResetConsumeSchema = z.object({
+  token: z.string().min(20).max(256),
+  password: passwordSchema,
+  device: deviceInfoSchema,
+});
+export type PasswordResetConsume = z.infer<typeof passwordResetConsumeSchema>;
 
 // ------------------------------------------------------ confirmação de e-mail
 export const verifyEmailRequestSchema = z.object({

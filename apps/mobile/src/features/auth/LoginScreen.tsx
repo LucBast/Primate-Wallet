@@ -91,6 +91,23 @@ export function LoginScreen({ onCreateAccount }: LoginScreenProps): React.JSX.El
     }
   }, [email, handleError]);
 
+  /**
+   * "Esqueci a senha" pede REDEFINIÇÃO, não link de acesso.
+   *
+   * Até a Fase 11 este link chamava o mesmo `handleMagicLink` do link mágico:
+   * a pessoa pedia para trocar a senha e recebia um link de entrada, sem nunca
+   * conseguir trocar. A copy prometia uma coisa e o app fazia outra.
+   */
+  const handlePasswordReset = useCallback(async () => {
+    setError(null);
+    try {
+      const resposta = await authApi.requestPasswordReset(email.trim());
+      setMagicLinkSent(resposta.message);
+    } catch (cause) {
+      handleError(cause);
+    }
+  }, [email, handleError]);
+
   const canSubmit = email.trim() !== '' && password !== '' && !submitting;
 
   return (
@@ -209,7 +226,7 @@ export function LoginScreen({ onCreateAccount }: LoginScreenProps): React.JSX.El
           </Pressable>
           <Pressable
             accessibilityRole="link"
-            onPress={() => void handleMagicLink()}
+            onPress={() => void handlePasswordReset()}
             hitSlop={12}
             testID="link-esqueci-senha"
           >
