@@ -102,6 +102,7 @@ export async function adjustBalance(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
     }),
   );
 }
@@ -141,6 +142,7 @@ export async function setAccountPermissions(
     method: 'PUT',
     body: input,
     accessToken,
+    requiresConnection: true,
   });
   return listOf(accountPermissionSchema).parse(body).items;
 }

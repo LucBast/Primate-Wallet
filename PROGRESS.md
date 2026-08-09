@@ -2,8 +2,8 @@
 
 ## Status geral
 
-- Fase atual: **Fase 10 — Offline e sincronização**
-- Fases concluídas: **0, 1, 2, 3, 4, 5, 6, 7, 8, 9**
+- Fase atual: **Fase 11 — Qualidade e hardening**
+- Fases concluídas: **0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10**
 - Última atualização: 2026-08-09
 - Responsável: Claude Code
 - Repositório: https://github.com/LucBast/Primate-Wallet (branch `main`)
@@ -510,9 +510,24 @@ e restringe a decisão a quem opera finanças — no Postgres, não só no servi
 não apaga: vira `REJECTED` e continua auditável. Compra em cartão pendente não entra na
 fatura nem consome limite antes da decisão. Telas 3c e a lista que a 3a abre.
 
+### Fase 10 — Offline e sincronização
+
+WatermelonDB sobre SQLite, espelhando as tabelas de LEITURA de docs/11 §1 mais a
+`outbox`, que é a única de escrita. A chave de idempotência nasce no enfileiramento,
+não no envio — é isso que torna o reenvio seguro quando não se sabe se o primeiro
+envio chegou. Só despesa, receita, compra simples no cartão e conta prevista saem
+offline; baixa, pagamento de fatura, transferência, estorno e aprovação devolvem
+`OFFLINE_OPERATION_REJECTED`, porque NÃO ficam guardadas esperando a rede. Os cinco
+estados de feedback de docs/11 §4 aparecem na faixa de sincronização. Verificado no
+emulador em modo avião: lançamento salvo no aparelho, faixa "◌ Aguardando
+sincronização", rede de volta e o lançamento postado sem duplicar.
+
+Dois defeitos que este ciclo achou, os dois em componentes já "aprovados": a `Banner`
+sobrepunha a ação ao texto quando a mensagem era longa (faltava `flexShrink`), e o
+rótulo de ação era decorativo — não tinha toque nenhum ligado.
+
 ## Pendente
 
-- **Fase 10 — Offline e sincronização**: WatermelonDB, outbox, conflitos, feedback.
 - **Fase 11 — Qualidade e hardening**: cobertura, E2E, acessibilidade, performance,
   segurança, device testing, recovery, runbooks.
 - **Fase 12 — Publicação**: documentos legais, store assets, beta, release, smoke tests.

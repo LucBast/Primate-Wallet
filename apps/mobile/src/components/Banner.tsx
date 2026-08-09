@@ -53,17 +53,28 @@ export function Banner({
       style={[styles.banner, { backgroundColor: palette.background, borderRadius: radius.md }]}
     >
       <View style={styles.line}>
-        <Text variant="banner" style={{ color: palette.foreground }}>
+        {/* `flexShrink` na mensagem: sem ele, uma mensagem longa empurra a ação
+            para fora e as duas se sobrepõem — o que acontecia com a faixa de
+            sincronização, cujo texto varia com a contagem. */}
+        <Text variant="banner" style={[styles.message, { color: palette.foreground }]}>
           {text}
         </Text>
-        {actionLabel === undefined ? null : (
+        {actionLabel === undefined ? null : onRetry === undefined ? (
+          // Sem `onRetry` o rótulo é decorativo: quem trata o toque é o chamador,
+          // que embrulha a faixa inteira num Pressable (é o "Resolver ›" da 1b).
           <Text variant="banner" style={{ color: palette.foreground }}>
             {actionLabel}
           </Text>
+        ) : (
+          <Pressable accessibilityRole="button" onPress={onRetry} hitSlop={10}>
+            <Text variant="banner" style={{ color: palette.foreground }}>
+              {actionLabel}
+            </Text>
+          </Pressable>
         )}
       </View>
 
-      {kind === 'error' && onRetry !== undefined ? (
+      {kind === 'error' && onRetry !== undefined && actionLabel === undefined ? (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Tentar novamente"
@@ -88,8 +99,10 @@ const styles = StyleSheet.create({
   line: {
     alignItems: 'center',
     flexDirection: 'row',
+    gap: 12,
     justifyContent: 'space-between',
   },
+  message: { flexShrink: 1 },
   retry: {
     alignSelf: 'flex-start',
     borderWidth: 1,

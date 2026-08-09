@@ -25,6 +25,7 @@ export async function settle(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
       idempotencyKey: input.idempotencyKey,
     }),
   );
@@ -52,6 +53,7 @@ export async function reverseSettlement(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
       idempotencyKey: input.idempotencyKey,
     }),
   );

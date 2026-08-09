@@ -88,6 +88,7 @@ export async function createTransfer(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
       idempotencyKey: input.idempotencyKey,
     }),
   );
@@ -104,6 +105,7 @@ export async function reverseTransaction(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
       idempotencyKey: input.idempotencyKey,
     }),
   );

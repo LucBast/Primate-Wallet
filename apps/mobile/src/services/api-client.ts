@@ -46,6 +46,15 @@ export type RequestOptions = {
   readonly accessToken?: string | undefined;
   /** Comandos financeiros exigem chave de idempotência (docs/04 §14). */
   readonly idempotencyKey?: string;
+  /**
+   * Operação que docs/11 §1 proíbe offline — baixa, pagamento de fatura,
+   * transferência, estorno, aprovação e mudança de permissão.
+   *
+   * Sem rede, a falha vira `OFFLINE_OPERATION_REJECTED` em vez do genérico
+   * "sem conexão": a diferença importa porque estas NÃO vão para o outbox, e a
+   * pessoa precisa saber que o comando não ficou guardado esperando a rede.
+   */
+  readonly requiresConnection?: boolean;
   readonly signal?: AbortSignal;
 };
 
@@ -79,6 +88,23 @@ export function setTokenRefresher(next: TokenRefresher | null): void {
   refresher = next;
 }
 
+/**
+ * Aviso de "a rede voltou".
+ *
+ * Depois de uma falha de rede, a primeira requisição que dá certo é o sinal
+ * mais barato e mais confiável de que dá para esvaziar o outbox — mais do que
+ * um temporizador, que insiste sem saber, e sem custar uma dependência nativa
+ * de conectividade só para responder a mesma pergunta.
+ */
+type ReconnectListener = () => void;
+
+let reconnectListener: ReconnectListener | null = null;
+let sawNetworkFailure = false;
+
+export function setReconnectListener(next: ReconnectListener | null): void {
+  reconnectListener = next;
+}
+
 async function renewOnce(): Promise<string | null> {
   if (refresher === null) return null;
   inFlight ??= refresher().finally(() => {
@@ -96,6 +122,17 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
   try {
     return await sendOnce<T>(path, options);
   } catch (error) {
+    if (
+      options.requiresConnection === true &&
+      error instanceof ApiRequestError &&
+      error.isOffline
+    ) {
+      throw new ApiRequestError(
+        'OFFLINE_OPERATION_REJECTED',
+        'Esta operação exige conexão com a internet.',
+        0,
+      );
+    }
     // Renova e repete UMA vez. Sem token na requisição não há o que renovar,
     // e a chamada de refresh em si nunca entra neste caminho.
     if (
@@ -129,6 +166,11 @@ async function sendOnce<T>(path: string, options: RequestOptions): Promise<T> {
       ...(options.body === undefined ? {} : { body: JSON.stringify(options.body) }),
     });
 
+    if (sawNetworkFailure) {
+      sawNetworkFailure = false;
+      reconnectListener?.();
+    }
+
     const text = await response.text();
     const payload: unknown = text === '' ? null : JSON.parse(text);
 
@@ -139,6 +181,7 @@ async function sendOnce<T>(path: string, options: RequestOptions): Promise<T> {
   } catch (error) {
     if (error instanceof ApiRequestError) throw error;
     // Timeout, DNS, offline: um único código, tratado como "sem conexão".
+    sawNetworkFailure = true;
     throw new ApiRequestError(
       'NETWORK_ERROR',
       'Sem conexão no momento. Verifique sua internet.',

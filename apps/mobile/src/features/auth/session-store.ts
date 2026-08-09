@@ -10,6 +10,8 @@ import type { Profile, Session } from '@ff/api-contracts';
 import * as authApi from './auth-api';
 import { setTokenRefresher } from '../../services/api-client';
 import { clearSession, loadSession, saveSession } from './session-storage';
+import { clearAll } from '../../offline/cache';
+import { useSyncStore } from '../../offline/sync-store';
 
 export type SessionStatus = 'carregando' | 'autenticado' | 'anonimo';
 
@@ -115,6 +117,10 @@ export const useSessionStore = create<SessionState>((set, get) => ({
       await authApi.logout(refreshToken).catch(() => undefined);
     }
     await clearSession();
+    // O cache local é de dados financeiros da família: sair da conta apaga tudo,
+    // senão o próximo login (ou o próximo dono do aparelho) veria o saldo alheio.
+    await clearAll().catch(() => undefined);
+    useSyncStore.getState().reset();
     set({ status: 'anonimo', profile: null, accessToken: null, refreshToken: null });
   },
 }));

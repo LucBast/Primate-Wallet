@@ -35,6 +35,7 @@ export async function approve(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
     }),
   );
 }
@@ -50,6 +51,7 @@ export async function reject(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
     }),
   );
 }

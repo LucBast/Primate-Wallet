@@ -75,6 +75,7 @@ export async function closeStatement(
       method: 'POST',
       body: { expectedVersion },
       accessToken,
+      requiresConnection: true,
     }),
   );
 }
@@ -90,6 +91,7 @@ export async function payStatement(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
       idempotencyKey: input.idempotencyKey,
     }),
   );
@@ -106,6 +108,7 @@ export async function reversePayment(
       method: 'POST',
       body: input,
       accessToken,
+      requiresConnection: true,
       idempotencyKey: input.idempotencyKey,
     }),
   );

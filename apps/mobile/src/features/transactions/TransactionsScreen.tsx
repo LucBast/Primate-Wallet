@@ -26,6 +26,8 @@ import { icons, iconSize } from '../../design-system/icons';
 import { font, type as typeTokens } from '../../design-system/tokens';
 import { fixedColors } from '../../design-system/spec-values';
 import { ApiRequestError } from '../../services/api-client';
+import { readList, writeList } from '../../offline/cache';
+import { SyncBanner } from '../../offline/SyncBanner';
 import { dayHeader, longMonthLabel } from '../../services/dates';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
@@ -132,6 +134,14 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
       : familyToday(household.timezone);
   const range = useMemo(() => monthRange(today), [today]);
 
+  const semFiltro =
+    period &&
+    search.trim() === '' &&
+    filters.conta === undefined &&
+    filters.categoria === undefined &&
+    filters.membro === undefined &&
+    filters.status === undefined;
+
   const load = useCallback(async () => {
     if (!accessToken || !household) return;
     setError(null);
@@ -149,9 +159,18 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
       });
       setItems([...page.items]);
       setOffline(false);
+      // Só o mês corrente sem filtro alimenta o cache: é o que a leitura
+      // offline promete (docs/11 §1, "movimentações recentes"). Guardar o
+      // resultado de uma busca faria o cache mostrar uma lista filtrada como se
+      // fosse o extrato inteiro.
+      if (semFiltro) void writeList('transactions', household.id, page.items);
     } catch (cause) {
       if (cause instanceof ApiRequestError && cause.isOffline) {
         setOffline(true);
+        // Offline não é tela vazia: mostra o que foi visto por último. Se o
+        // cache também estiver vazio, mostra o estado vazio — esqueleto para
+        // sempre faria parecer que ainda está carregando algo.
+        setItems(await readList<Transaction>('transactions', household.id));
         return;
       }
       setError(
@@ -160,7 +179,7 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
           : 'Não foi possível carregar as movimentações agora.',
       );
     }
-  }, [accessToken, filters, household, period, range.end, range.start, search]);
+  }, [accessToken, filters, household, period, range.end, range.start, search, semFiltro]);
 
   useEffect(() => {
     const timer = setTimeout(() => void load(), search === '' ? 0 : 300);
@@ -309,6 +328,8 @@ export function TransactionsScreen({ onOpen }: TransactionsScreenProps): React.J
           />
         }
       >
+        <SyncBanner onRetry={() => void load()} />
+
         {offline ? (
           <View style={{ marginBottom: spacing.md }}>
             <Banner

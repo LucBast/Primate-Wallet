@@ -110,10 +110,9 @@ async function main() {
 
   // Os convites do Bruno e do Caio foram consumidos pelo atalho acima; sem
   // apagá-los, a 3a mostrava "Convites pendentes · 2" com gente que já é membro.
-  await admin.query(
-    `DELETE FROM invitations WHERE household_id = $1 AND accepted_at IS NULL`,
-    [hh],
-  );
+  await admin.query(`DELETE FROM invitations WHERE household_id = $1 AND accepted_at IS NULL`, [
+    hh,
+  ]);
   // O convite pendente que a 3a mostra é o do tio Rafael, ainda sem aceite.
   await api('POST', rota('/invitations'), {
     token: ana,

@@ -34,6 +34,8 @@ import { font } from '../../design-system/tokens';
 import { icons, iconSize } from '../../design-system/icons';
 import { ApiRequestError } from '../../services/api-client';
 import { newIdempotencyKey } from '../../services/idempotency';
+import { enqueue } from '../../offline/outbox';
+import { useSyncStore } from '../../offline/sync-store';
 import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
 import { useReferenceStore } from '../household/reference-store';
@@ -146,20 +148,20 @@ export function QuickEntryScreen({
       if (!accessToken || !household || accountId === null || memberId === null) return;
       setErro(null);
       setSalvando(true);
+      const payload = {
+        description: description.trim() === '' ? 'Lançamento rápido' : description.trim(),
+        amountMinor,
+        accountId,
+        memberId,
+        ...(categoryId === null ? {} : { categoryId }),
+        ...(counterparty.trim() === '' ? {} : { counterpartyName: counterparty.trim() }),
+        ...(notes.trim() === '' ? {} : { notes: notes.trim() }),
+        occurredAt,
+        competenceDate: occurredAt,
+        source: 'BOTTOM_ACTION' as const,
+        idempotencyKey: newIdempotencyKey('rapido'),
+      };
       try {
-        const payload = {
-          description: description.trim() === '' ? 'Lançamento rápido' : description.trim(),
-          amountMinor,
-          accountId,
-          memberId,
-          ...(categoryId === null ? {} : { categoryId }),
-          ...(counterparty.trim() === '' ? {} : { counterpartyName: counterparty.trim() }),
-          ...(notes.trim() === '' ? {} : { notes: notes.trim() }),
-          occurredAt,
-          competenceDate: occurredAt,
-          source: 'BOTTOM_ACTION' as const,
-          idempotencyKey: newIdempotencyKey('rapido'),
-        };
         if (nature === 'INCOME') {
           await api.createIncome(accessToken, household.id, payload);
         } else {
@@ -175,6 +177,27 @@ export function QuickEntryScreen({
         setAmountMinor(0);
         setDescription('');
       } catch (cause) {
+        // Sem rede, o lançamento rápido NÃO se perde: vai para o outbox com a
+        // chave de idempotência já gravada, e a pessoa vê "◌ Aguardando
+        // sincronização" (docs/11 §1 e §4). Despesa e receita estão entre os
+        // quatro comandos que o pacote autoriza offline; os que mexem em saldo
+        // disputado continuam exigindo conexão.
+        if (cause instanceof ApiRequestError && cause.isOffline) {
+          await enqueue({
+            kind: nature === 'INCOME' ? 'INCOME' : 'EXPENSE',
+            householdId: household.id,
+            body: payload,
+          });
+          await useSyncStore.getState().refresh(household.id);
+          if (!continuar) {
+            onClose();
+            return;
+          }
+          setSalvo(`${formatMoney(minor(amountMinor))} salvo no aparelho.`);
+          setAmountMinor(0);
+          setDescription('');
+          return;
+        }
         setErro(
           cause instanceof ApiRequestError ? cause.message : 'Não foi possível salvar agora.',
         );

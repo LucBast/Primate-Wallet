@@ -50,6 +50,7 @@ import { ReportsScreen } from '../features/home/ReportsScreen';
 import { PhasePlaceholder } from '../components/PhasePlaceholder';
 import { QuickEntryScreen } from '../features/quick-entry/QuickEntryScreen';
 import { appConfig } from '../services/config';
+import { useSync } from '../offline/use-sync';
 import { AppTabs } from './AppTabs';
 import type { AppStackParamList, AuthStackParamList, OnboardingStackParamList } from './types';
 
@@ -443,6 +444,10 @@ export function RootNavigator(): React.JSX.Element {
   useEffect(() => {
     void restore();
   }, [restore]);
+
+  // Esvazia o outbox quando há sessão e família, e de novo a cada volta do
+  // segundo plano (docs/11 §2).
+  useSync();
 
   // A lista de famílias é carregada assim que existe sessão, e descartada no
   // logout: nenhum dado familiar sobra na memória de quem saiu.
