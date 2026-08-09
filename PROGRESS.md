@@ -56,8 +56,9 @@ A captura da 1f no escuro achou o oitavo: a **barra de limite** do card da
 fatura usava `colors.surface` como preenchimento — branco no claro, quase
 preto no escuro, sumindo dentro do cardNavy. Também virou `fixedColors`.
 
-Reconferidas no escuro depois das correções: **1b, 1c, 1d, 1f, 1g, 2a, 3a, 4a,
-8c e 8d**. Quatro delas são as que provam cada correção:
+Reconferidas no escuro depois das correções: **1b, 1c, 1d, 1e, 1f, 1g, 2a, 3a,
+4a, 8c, 8d e 8g** — doze das vinte e seis. Quatro delas são as que provam cada
+correção:
 
 - **3a** — os avatares: iniciais **brancas** sobre os círculos coloridos. Antes
   seriam quase-pretas.
