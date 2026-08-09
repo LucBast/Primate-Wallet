@@ -56,7 +56,11 @@ A captura da 1f no escuro achou o oitavo: a **barra de limite** do card da
 fatura usava `colors.surface` como preenchimento — branco no claro, quase
 preto no escuro, sumindo dentro do cardNavy. Também virou `fixedColors`.
 
-Reconferidas no escuro depois das correções: 1b, 1f e 2a.
+Reconferidas no escuro depois das correções: **1b, 1c, 1d, 1f e 2a**. A 1c é a
+que prova a correção do scrim: a tela por trás da folha aparece escurecida, não
+clareada. Faltam as demais — a expectativa é que estejam certas, já que as oito
+correções foram todas em componentes compartilhados, mas isso é hipótese até
+capturar, que é exatamente o erro que o CLAUDE.md manda não cometer.
 
 ### Telas aprovadas no gate
 
