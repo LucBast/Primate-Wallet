@@ -1,0 +1,46 @@
+# O que NUNCA entra no contexto de build da imagem.
+#
+# Além do peso, há uma razão de segurança: `.env` tem as credenciais de banco e
+# os segredos de JWT. Em produção elas vêm da configuração do Cloud Run, nunca
+# de um arquivo dentro da imagem.
+
+node_modules
+**/node_modules
+
+# Artefatos de build da máquina: a imagem compila do zero.
+dist
+**/dist
+**/build
+*.tsbuildinfo
+**/*.tsbuildinfo
+coverage
+**/coverage
+
+# Segredos
+.env
+.env.*
+!.env.example
+*.keystore
+!apps/mobile/android/app/debug.keystore
+*.jks
+*.p12
+*.pem
+*.mobileprovision
+
+# O app não faz parte da imagem do backend (só o manifesto, que o Dockerfile
+# copia explicitamente para o npm resolver os workspaces).
+apps/mobile/android
+apps/mobile/ios
+apps/mobile/src
+apps/mobile/assets
+apps/mobile/__tests__
+
+# Nada disso é usado em runtime.
+design
+docs
+.git
+.github
+.claude
+infra
+*.log
+npm-debug.log*

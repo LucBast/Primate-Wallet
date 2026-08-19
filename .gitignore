@@ -12,6 +12,12 @@ coverage/
 .env
 .env.*
 !.env.example
+# Versões preenchidas dos scripts de provisionamento: contêm senhas reais.
+# O modelo com marcadores (sem `.local`) é que fica versionado.
+*.local.sql
+# Anotações com chaves coladas à mão (DSN, API keys). Nunca versionar.
+secrets.txt
+**/secrets.txt
 *.pem
 *.p12
 *.mobileprovision

@@ -14,6 +14,7 @@ import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import { config as loadDotenv } from 'dotenv';
 import { runner } from 'node-pg-migrate';
+import { sslFromEnv } from './ssl.mjs';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const repoRoot = path.resolve(here, '../../..');
@@ -37,9 +38,13 @@ if (command === 'reset' && process.env.APP_ENV === 'production') {
 const direction = command === 'up' ? 'up' : 'down';
 const count = command === 'reset' ? Infinity : command === 'down' ? 1 : Infinity;
 
+// Só a string de conexão não bastaria: sem `ssl` o driver conecta em texto
+// claro, e a credencial de migração é a mais privilegiada que existe aqui.
+const ssl = sslFromEnv();
+
 try {
   const applied = await runner({
-    databaseUrl,
+    databaseUrl: { connectionString: databaseUrl, ssl },
     dir: MIGRATIONS_DIR,
     direction,
     count,

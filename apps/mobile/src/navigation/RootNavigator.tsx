@@ -13,6 +13,7 @@ import React, { useCallback, useEffect } from 'react';
 import { ActivityIndicator, StyleSheet, View } from 'react-native';
 import {
   NavigationContainer,
+  getStateFromPath as defaultGetStateFromPath,
   type LinkingOptions,
   type ParamListBase,
   type Theme as NavigationTheme,
@@ -84,8 +85,38 @@ const OnboardingStack = createNativeStackNavigator<OnboardingStackParamList>();
  * `senha-nova?token=` é diferente: ali o token não vira sessão sozinho, porque
  * ainda falta a pessoa escolher a senha.
  */
+const TOKEN_ROUTES: Record<string, 'MAGIC_LINK' | 'EMAIL_VERIFICATION'> = {
+  entrar: 'MAGIC_LINK',
+  'verificar-email': 'EMAIL_VERIFICATION',
+};
+
+/**
+ * `entrar` e `verificar-email` não cabem em `config.screens`: as duas caem na
+ * MESMA tela e se distinguem por um parâmetro (`purpose`) que não está no
+ * caminho. Mapear só por string deixaria o token cair no chão: o app abria no
+ * login e a confirmação de e-mail nunca acontecia.
+ */
+function getStateFromPath(
+  path: string,
+  options: Parameters<typeof defaultGetStateFromPath>[1],
+): ReturnType<typeof defaultGetStateFromPath> {
+  const [route, query = ''] = path.replace(/^\/+/, '').split('?');
+  const purpose = route === undefined ? undefined : TOKEN_ROUTES[route];
+  const token = new URLSearchParams(query).get('token');
+
+  if (purpose !== undefined && token !== null && token !== '') {
+    return {
+      routes: [{ name: 'Token', params: { token, purpose } }],
+      index: 0,
+    };
+  }
+
+  return defaultGetStateFromPath(path, options);
+}
+
 const linking: LinkingOptions<ParamListBase> = {
   prefixes: [`${appConfig.deepLinkScheme}://`],
+  getStateFromPath,
   config: {
     screens: {
       Login: 'login',

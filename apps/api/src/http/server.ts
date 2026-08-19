@@ -14,6 +14,7 @@ import type { Logger } from 'pino';
 import { healthResponseSchema } from '@ff/api-contracts';
 import type { AppConfig } from '../config/env.js';
 import { checkDatabaseHealth, type Database } from '../db/pool.js';
+import { registerLinkBridge } from './link-bridge.js';
 import { registerErrorHandler } from './error-handler.js';
 import { createAuthService, type AuthService } from '../modules/auth/service.js';
 import { createTokenService } from '../modules/auth/tokens.js';
@@ -49,8 +50,18 @@ import { registerNotificationRoutes } from '../modules/notification/routes.js';
 
 export const APP_VERSION = '0.1.0';
 
-/** Esquema de deep link do app (docs/12). Todo link de e-mail usa esta base. */
+/**
+ * Base dos links de e-mail quando não há URL pública configurada: o deep link
+ * cru do app (docs/12). Só serve em desenvolvimento e teste, onde o link é lido
+ * no log e colado à mão. Em produção `PUBLIC_BASE_URL` é obrigatória e os links
+ * passam pela ponte `/abrir/…` — ver `link-bridge.ts` para o porquê.
+ */
 export const APP_LINK_BASE = 'familyfinance://';
+
+/** Base efetiva dos links de e-mail, dada a configuração. */
+export function resolveAppLinkBase(publicBaseUrl: string): string {
+  return publicBaseUrl === '' ? APP_LINK_BASE : `${publicBaseUrl}/abrir`;
+}
 
 export type ServerDeps = {
   readonly config: AppConfig;
@@ -115,7 +126,10 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
   });
 
   const tokens = createTokenService(config);
-  const auth = createAuthService({ db, tokens, mailer, appLinkBase: APP_LINK_BASE });
+  const appLinkBase = resolveAppLinkBase(config.http.publicBaseUrl);
+  const auth = createAuthService({ db, tokens, mailer, appLinkBase });
+
+  registerLinkBridge(app);
 
   app.get('/health', async (_request, reply) => {
     const databaseOk = await checkDatabaseHealth(db);
@@ -132,7 +146,7 @@ export async function buildServer(deps: ServerDeps): Promise<BuiltServer> {
 
   await registerAuthRoutes(app, { auth, tokens });
 
-  const households = createHouseholdService({ db, mailer, appLinkBase: APP_LINK_BASE });
+  const households = createHouseholdService({ db, mailer, appLinkBase });
   await registerHouseholdRoutes(app, { households, authenticate });
 
   const accounts = createAccountService({ db });

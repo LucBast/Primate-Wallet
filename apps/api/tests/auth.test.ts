@@ -79,6 +79,58 @@ describe('cadastro', () => {
     expect(first.json().status).toBe('ACCEPTED');
   });
 
+  it('reenvia a confirmação quando a conta existe e nunca foi confirmada', async () => {
+    // Sem isto a conta fica num beco sem saída: o primeiro link expira, o
+    // login recusa com EMAIL_NOT_VERIFIED e não existe como pedir outro.
+    await ctx.app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: { email: EMAIL, password: PASSWORD, displayName: 'Ana' },
+    });
+    const primeiro = lastEmailLink(ctx.mailer);
+
+    await ctx.app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: { email: EMAIL, password: PASSWORD, displayName: 'Ana' },
+    });
+    const segundo = lastEmailLink(ctx.mailer);
+
+    expect(segundo).not.toBe(primeiro);
+    const ultimo = ctx.mailer.outbox?.[ctx.mailer.outbox.length - 1];
+    expect(ultimo?.subject).toBe('Confirme seu e-mail');
+
+    // O link novo vale; o antigo morreu junto (um link por vez).
+    const antigo = await ctx.app.inject({
+      method: 'POST',
+      url: '/auth/verify-email',
+      payload: { token: primeiro, device: TEST_DEVICE },
+    });
+    expect(antigo.statusCode).toBe(400);
+
+    const novo = await ctx.app.inject({
+      method: 'POST',
+      url: '/auth/verify-email',
+      payload: { token: segundo, device: TEST_DEVICE },
+    });
+    expect(novo.statusCode).toBe(200);
+  });
+
+  it('avisa em vez de reenviar quando a conta já está confirmada', async () => {
+    await registerAndVerify();
+
+    await ctx.app.inject({
+      method: 'POST',
+      url: '/auth/register',
+      payload: { email: EMAIL, password: PASSWORD, displayName: 'Outra pessoa' },
+    });
+
+    const ultimo = ctx.mailer.outbox?.[ctx.mailer.outbox.length - 1];
+    expect(ultimo?.subject).toBe('Tentativa de cadastro com o seu e-mail');
+    // Nada de link: quem já confirmou entra pelo login.
+    expect(ultimo?.link).toBeUndefined();
+  });
+
   it('recusa senha curta com envelope de erro', async () => {
     const response = await ctx.app.inject({
       method: 'POST',

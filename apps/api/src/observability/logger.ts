@@ -31,7 +31,7 @@ export function createLogger(config: AppConfig): Logger {
   const options: LoggerOptions = {
     level: config.logLevel,
     redact: { paths: REDACTED_PATHS, censor: '[redigido]' },
-    base: { environment: config.env, service: 'ff-api' },
+    base: { environment: config.env, service: 'primatewallet-api' },
     formatters: {
       level: (label) => ({ level: label }),
     },

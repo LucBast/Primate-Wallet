@@ -1,0 +1,47 @@
+# O que não sobe para o Cloud Build em `gcloud run deploy --source .`.
+#
+# Sem este arquivo o gcloud cai no `.gitignore`, que não exclui `design/` nem
+# `apps/mobile/` — centenas de megabytes de screenshots e de código do app que o
+# backend não usa. O `.dockerignore` ainda filtra o que entra na imagem; este
+# arquivo filtra o que sai desta máquina.
+#
+# Atenção: o Dockerfile e os manifestos dos workspaces PRECISAM subir.
+
+.git
+.github
+.claude
+
+node_modules
+**/node_modules
+
+dist
+**/dist
+build
+**/build
+*.tsbuildinfo
+**/*.tsbuildinfo
+coverage
+**/coverage
+
+# Segredos — jamais.
+.env
+.env.*
+!.env.example
+*.keystore
+*.jks
+*.p12
+*.pem
+*.mobileprovision
+
+# Do app, só o package.json sobe (o Dockerfile precisa dele para o npm resolver
+# os workspaces); todo o resto fica.
+apps/mobile/android
+apps/mobile/ios
+apps/mobile/src
+apps/mobile/assets
+apps/mobile/__tests__
+
+design
+docs
+infra
+*.log

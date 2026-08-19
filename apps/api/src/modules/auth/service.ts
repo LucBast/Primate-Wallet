@@ -38,7 +38,16 @@ import type { ProfileRow } from './repository.js';
 /** Bloqueio por conta, complementar ao rate limit por IP. */
 const MAX_FAILED_LOGINS = 8;
 const ACCOUNT_LOCK_MINUTES = 15;
-const EMAIL_TOKEN_TTL_MINUTES = 60;
+/**
+ * Confirmação de e-mail vale 24h, e não uma hora como antes.
+ *
+ * O link mágico é pedido e usado no mesmo minuto; este chega junto do cadastro
+ * e é lido quando a pessoa abre a caixa — às vezes no dia seguinte. Com uma
+ * hora, quem se cadastrava à noite acordava com um link morto e uma conta que
+ * não dava para confirmar nem para usar. A janela maior é aceitável porque o
+ * token não abre sessão sozinho sem estar no aparelho da pessoa.
+ */
+const EMAIL_TOKEN_TTL_MINUTES = 24 * 60;
 const MAGIC_LINK_TTL_MINUTES = 15;
 /**
  * Redefinição de senha vale mais que o magic link, e de propósito.
@@ -115,6 +124,39 @@ export function createAuthService(deps: AuthServiceDeps) {
     };
   }
 
+  /**
+   * Emite um token de confirmação e manda o e-mail.
+   *
+   * Vive fora de `register` porque o cadastro repetido de uma conta ainda não
+   * confirmada precisa exatamente do mesmo efeito. Sem isso, quem perdia o
+   * primeiro link ficava sem saída: não confirmava (o link expirou) e não
+   * entrava (`EMAIL_NOT_VERIFIED`).
+   */
+  async function sendEmailVerification(
+    client: PoolClient,
+    profile: ProfileRow,
+    ctx: RequestContext,
+  ): Promise<void> {
+    // Um link por vez: emitir um novo mata o anterior.
+    await repo.invalidatePendingTokens(client, profile.id, 'EMAIL_VERIFICATION');
+
+    const { token, tokenHash } = createSingleUseToken();
+    await repo.insertAuthToken(client, {
+      userId: profile.id,
+      purpose: 'EMAIL_VERIFICATION',
+      tokenHash,
+      expiresAt: minutesFromNow(EMAIL_TOKEN_TTL_MINUTES),
+      requestedIp: ctx.ip,
+    });
+
+    await mailer.send({
+      to: profile.email,
+      subject: 'Confirme seu e-mail',
+      body: 'Confirme seu e-mail para começar a usar o aplicativo.',
+      link: `${appLinkBase}/verificar-email?token=${token}`,
+    });
+  }
+
   return {
     /**
      * Cadastro. Responde SEMPRE o mesmo corpo, exista ou não o e-mail — e o
@@ -127,6 +169,22 @@ export function createAuthService(deps: AuthServiceDeps) {
         const existing = await repo.findProfileByEmail(client, input.email);
 
         if (existing) {
+          // Conta que existe mas nunca foi confirmada não é "e-mail em uso": é
+          // um cadastro pela metade. Reenviar o link é o único caminho de volta.
+          // Não vaza nada novo: o caminho de e-mail existente já disparava uma
+          // mensagem para o mesmo endereço, e a resposta HTTP continua idêntica.
+          if (existing.email_verified_at === null) {
+            await repo.insertAuditLog(client, {
+              actorUserId: existing.id,
+              entityType: 'profile',
+              entityId: existing.id,
+              action: 'EMAIL_VERIFICATION_RESENT',
+              requestId: ctx.requestId,
+            });
+            await sendEmailVerification(client, existing, ctx);
+            return;
+          }
+
           await repo.insertAuditLog(client, {
             actorUserId: existing.id,
             entityType: 'profile',
@@ -150,14 +208,6 @@ export function createAuthService(deps: AuthServiceDeps) {
           name: input.displayName,
         });
 
-        const { token, tokenHash } = createSingleUseToken();
-        await repo.insertAuthToken(client, {
-          userId: profile.id,
-          purpose: 'EMAIL_VERIFICATION',
-          tokenHash,
-          expiresAt: minutesFromNow(EMAIL_TOKEN_TTL_MINUTES),
-          requestedIp: ctx.ip,
-        });
         await repo.insertAuditLog(client, {
           actorUserId: profile.id,
           entityType: 'profile',
@@ -166,12 +216,7 @@ export function createAuthService(deps: AuthServiceDeps) {
           requestId: ctx.requestId,
         });
 
-        await mailer.send({
-          to: profile.email,
-          subject: 'Confirme seu e-mail',
-          body: 'Confirme seu e-mail para começar a usar o aplicativo.',
-          link: `${appLinkBase}/verificar-email?token=${token}`,
-        });
+        await sendEmailVerification(client, profile, ctx);
       });
 
       return { status: 'ACCEPTED', message: NEUTRAL_REGISTER_MESSAGE };

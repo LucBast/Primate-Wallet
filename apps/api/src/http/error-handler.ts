@@ -5,6 +5,7 @@
  */
 
 import type { FastifyError, FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import * as Sentry from '@sentry/node';
 import { ZodError } from 'zod';
 import { DomainError, isDomainError, DOMAIN_ERROR_MESSAGES } from '@ff/domain';
 import type { ApiError } from '@ff/api-contracts';
@@ -74,6 +75,16 @@ export function registerErrorHandler(app: FastifyInstance): void {
     // 5xx é falha nossa: log completo. 4xx é fluxo esperado: log enxuto.
     if (status >= 500) {
       request.log.error({ err: error, code: body.code }, 'Erro não tratado');
+      // Este handler responde ao cliente e ENCERRA o erro aqui: nada sobe para
+      // o processo. Sem a captura explícita, o Sentry só veria a queda do
+      // container, nunca um 500 de rota. Sem DSN configurado (desenvolvimento
+      // e testes) `captureException` é no-op, então não há caminho especial.
+      // Só o padrão da rota vai como tag, nunca `request.url`: a URL concreta
+      // carrega identificadores de família e de lançamento.
+      Sentry.captureException(error, {
+        tags: { code: body.code, method: request.method, route: request.routeOptions.url },
+        extra: { requestId: request.id, statusCode: status },
+      });
     } else {
       request.log.info({ code: body.code, status }, 'Requisição recusada');
     }

@@ -12,7 +12,7 @@ import * as Sentry from '@sentry/node';
 import { ConfigError, loadConfig } from './config/env.js';
 import { createLogger } from './observability/logger.js';
 import { createDatabase } from './db/pool.js';
-import { createLogMailer } from './modules/auth/mailer.js';
+import { createLogMailer, createResendMailer } from './modules/auth/mailer.js';
 import { buildServer } from './http/server.js';
 import { startScheduler } from './jobs/scheduler.js';
 
@@ -38,13 +38,19 @@ async function main(): Promise<void> {
     });
   }
 
+  // Sem chave do Resend o link de confirmação vai só para o log — o que serve
+  // em desenvolvimento e `env.ts` proíbe em produção.
+  const mailer =
+    config.email.resendApiKey === ''
+      ? createLogMailer(logger)
+      : createResendMailer({
+          apiKey: config.email.resendApiKey,
+          from: config.email.from,
+          logger,
+        });
+
   const db = createDatabase(config);
-  const { app } = await buildServer({
-    config,
-    db,
-    logger,
-    mailer: createLogMailer(logger),
-  });
+  const { app } = await buildServer({ config, db, logger, mailer });
 
   // Avisos de vencimento, fatura e aprovação, e extensão das recorrências
   // (docs/12 §5). Roda com trava do Postgres, então subir várias instâncias

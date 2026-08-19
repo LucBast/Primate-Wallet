@@ -30,10 +30,21 @@ export type Database = {
 };
 
 export function createDatabase(config: AppConfig): Database {
+  // `rejectUnauthorized: true` NÃO é redundante: sem verificar o certificado, a
+  // conexão continua cifrada mas fica aberta a quem se colocar no meio — e o que
+  // trafega aqui é a credencial do banco. Quando o provedor usa CA própria (o
+  // pooler do Supabase usa a "Supabase Root 2021 CA", auto-assinada), o caminho
+  // certo é ENSINAR a raiz, via DATABASE_SSL_CA, e não baixar a verificação.
+  const sslConfig = config.database.ssl
+    ? config.database.sslCa === ''
+      ? { rejectUnauthorized: true }
+      : { rejectUnauthorized: true, ca: config.database.sslCa }
+    : undefined;
+
   const common = {
     max: config.database.poolMax,
-    ssl: config.database.ssl ? { rejectUnauthorized: true } : undefined,
-    application_name: 'ff-api',
+    ssl: sslConfig,
+    application_name: 'primatewallet-api',
     // Consulta travada não pode segurar uma conexão indefinidamente.
     statement_timeout: 15_000,
     idle_in_transaction_session_timeout: 10_000,
@@ -44,7 +55,7 @@ export function createDatabase(config: AppConfig): Database {
     ...common,
     connectionString: config.database.authUrl,
     max: Math.max(2, Math.floor(config.database.poolMax / 2)),
-    application_name: 'ff-api-auth',
+    application_name: 'primatewallet-api-auth',
   });
 
   return {

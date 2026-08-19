@@ -28,19 +28,57 @@ describe('loadConfig (docs/15 §6)', () => {
     expect(() => loadConfig({ ...base, JWT_ACCESS_SECRET: 'curto' })).toThrow(ConfigError);
   });
 
-  it('em produção, recusa CORS aberto, Sentry vazio e segredos iguais', () => {
+  it('em produção, recusa CORS aberto, Sentry vazio, e-mail sem provedor e segredos iguais', () => {
     const production = {
       ...base,
       APP_ENV: 'production',
       SENTRY_DSN: 'https://exemplo@sentry.io/1',
       API_CORS_ORIGINS: 'https://app.exemplo.com',
+      RESEND_API_KEY: 're_chave',
+      EMAIL_FROM: 'Primate Wallet <nao-responda@exemplo.com>',
+      PUBLIC_BASE_URL: 'https://api.exemplo.app',
     };
     expect(() => loadConfig(production)).not.toThrow();
+    // Sem base pública os e-mails sairiam com deep link cru, que nenhum
+    // cliente de e-mail transforma em link: cadastro impossível de confirmar.
+    expect(() => loadConfig({ ...production, PUBLIC_BASE_URL: '' })).toThrow(ConfigError);
+    expect(() => loadConfig({ ...production, PUBLIC_BASE_URL: 'http://api.exemplo.app' })).toThrow(
+      ConfigError,
+    );
+    // Barra no fim é tolerada: loadConfig normaliza antes de montar o link.
+    expect(() =>
+      loadConfig({ ...production, PUBLIC_BASE_URL: 'https://api.exemplo.app/' }),
+    ).not.toThrow();
     expect(() => loadConfig({ ...production, API_CORS_ORIGINS: '*' })).toThrow(ConfigError);
     expect(() => loadConfig({ ...production, API_CORS_ORIGINS: '' })).toThrow(ConfigError);
     expect(() => loadConfig({ ...production, SENTRY_DSN: '' })).toThrow(ConfigError);
+    // Sem provedor de e-mail, produção criaria contas que ninguém confirma.
+    expect(() => loadConfig({ ...production, RESEND_API_KEY: '' })).toThrow(ConfigError);
     expect(() =>
       loadConfig({ ...production, JWT_REFRESH_SECRET: production.JWT_ACCESS_SECRET }),
+    ).toThrow(ConfigError);
+  });
+
+  it('exige remetente junto com a chave do Resend, em qualquer ambiente', () => {
+    // Vazio dos dois lados é o caminho de desenvolvimento: cai no mailer de log.
+    expect(loadConfig(base).email).toEqual({ resendApiKey: '', from: '' });
+    expect(() => loadConfig({ ...base, RESEND_API_KEY: 're_chave' })).toThrow(ConfigError);
+    expect(
+      loadConfig({ ...base, RESEND_API_KEY: 're_chave', EMAIL_FROM: 'X <a@b.com>' }).email,
+    ).toEqual({ resendApiKey: 're_chave', from: 'X <a@b.com>' });
+  });
+
+  it('decodifica a CA do banco e recusa base64 que não seja certificado', () => {
+    const pem = '-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n';
+    const base64 = Buffer.from(pem, 'utf8').toString('base64');
+
+    expect(loadConfig({ ...base, DATABASE_SSL_CA: base64 }).database.sslCa).toBe(pem);
+    // Ausente é o caso normal de quem usa CA pública: nada de erro, campo vazio.
+    expect(loadConfig(base).database.sslCa).toBe('');
+    // Base64 válido, conteúdo que não é certificado — o erro tem de sair aqui, e
+    // não lá na frente, disfarçado de falha de TLS.
+    expect(() =>
+      loadConfig({ ...base, DATABASE_SSL_CA: Buffer.from('nada disso').toString('base64') }),
     ).toThrow(ConfigError);
   });
 

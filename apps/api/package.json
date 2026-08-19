@@ -17,7 +17,8 @@
     "db:test:prepare": "node scripts/create-test-db.mjs",
     "seed:demo": "node scripts/seed-demo.mjs",
     "test:coverage": "vitest run --coverage",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "check:db": "node scripts/check-db.mjs"
   },
   "dependencies": {
     "@fastify/cors": "^11.3.0",

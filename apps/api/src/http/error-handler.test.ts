@@ -1,8 +1,11 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import { z } from 'zod';
 import { DomainError } from '@ff/domain';
 import { apiErrorSchema } from '@ff/api-contracts';
-import { httpStatusFor, toApiError } from './error-handler.js';
+import { httpStatusFor, registerErrorHandler, toApiError } from './error-handler.js';
+
+vi.mock('@sentry/node', () => ({ captureException: vi.fn() }));
+const { captureException } = await import('@sentry/node');
 
 const REQUEST_ID = '11111111-2222-3333-4444-555555555555';
 
@@ -42,5 +45,54 @@ describe('toApiError (docs/09 §2)', () => {
     expect(toApiError({ statusCode: 404 }, REQUEST_ID).code).toBe('NOT_FOUND');
     expect(toApiError({ statusCode: 400 }, REQUEST_ID).code).toBe('VALIDATION_ERROR');
     expect(toApiError({ statusCode: 502 }, REQUEST_ID).code).toBe('INTERNAL_ERROR');
+  });
+});
+
+describe('registerErrorHandler e o Sentry', () => {
+  // O handler responde ao cliente e ENCERRA o erro: nada sobe para os handlers
+  // globais do processo. Se a captura explícita sumir, o Sentry vira enfeite —
+  // continua recebendo queda de container e nunca um 500 de rota. Daí o teste.
+  function capturarHandler() {
+    let handler: unknown;
+    registerErrorHandler({
+      setErrorHandler: (fn: unknown) => {
+        handler = fn;
+      },
+      setNotFoundHandler: () => undefined,
+    } as never);
+    return handler as (erro: unknown, req: unknown, reply: unknown) => void;
+  }
+
+  const request = {
+    id: REQUEST_ID,
+    method: 'POST',
+    url: '/households/9f1c/expenses?busca=mercado',
+    routeOptions: { url: '/households/:householdId/expenses' },
+    log: { error: vi.fn(), info: vi.fn() },
+  };
+  const reply = { status: () => reply, send: () => reply };
+
+  beforeEach(() => {
+    vi.mocked(captureException).mockClear();
+  });
+
+  it('reporta 5xx com o padrão da rota, nunca a URL concreta', () => {
+    capturarHandler()(new Error('conexão recusada em 10.0.0.5:5432'), request, reply);
+
+    expect(captureException).toHaveBeenCalledTimes(1);
+    const [erro, escopo] = vi.mocked(captureException).mock.calls[0]!;
+    expect((erro as Error).message).toContain('10.0.0.5');
+    expect(escopo?.tags).toEqual({
+      code: 'INTERNAL_ERROR',
+      method: 'POST',
+      route: '/households/:householdId/expenses',
+    });
+    expect(JSON.stringify(escopo)).not.toContain('9f1c');
+    expect(JSON.stringify(escopo)).not.toContain('mercado');
+  });
+
+  it('não reporta 4xx: regra de negócio negada é fluxo esperado', () => {
+    capturarHandler()(new DomainError('OUTSTANDING_AMOUNT_EXCEEDED'), request, reply);
+    expect(captureException).not.toHaveBeenCalled();
   });
 });

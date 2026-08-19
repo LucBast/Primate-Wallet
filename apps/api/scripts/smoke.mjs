@@ -20,6 +20,7 @@ import { fileURLToPath } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { config as loadDotenv } from 'dotenv';
 import pg from 'pg';
+import { sslFromEnv } from './ssl.mjs';
 
 // Em desenvolvimento o .env da raiz basta; em homologação e produção as
 // variáveis vêm do ambiente e o carregamento abaixo simplesmente não acha nada.
@@ -92,7 +93,9 @@ async function main() {
     );
     process.exit(0);
   }
-  const admin = new pg.Pool({ connectionString: migrationUrl, max: 1 });
+  // `ssl` pela mesma política do runtime: contra um banco gerenciado, sem isto
+  // a limpeza falharia (ou trafegaria a credencial de migração em texto claro).
+  const admin = new pg.Pool({ connectionString: migrationUrl, max: 1, ssl: sslFromEnv() });
 
   try {
     // 2. Cadastro e sessão.
