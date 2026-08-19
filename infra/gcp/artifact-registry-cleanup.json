@@ -1,0 +1,18 @@
+[
+  {
+    "name": "manter-as-2-mais-recentes",
+    "action": { "type": "Keep" },
+    "mostRecentVersions": {
+      "packageNamePrefixes": ["primatewallet-api"],
+      "keepCount": 2
+    }
+  },
+  {
+    "name": "apagar-o-resto",
+    "action": { "type": "Delete" },
+    "condition": {
+      "tagState": "ANY",
+      "olderThan": "0s"
+    }
+  }
+]

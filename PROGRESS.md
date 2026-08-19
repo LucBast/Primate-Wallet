@@ -641,6 +641,37 @@ Aqui ficam só os que impedem chamar o projeto de pronto.
 
 Fora isso, tudo que dependia só de código está entregue.
 
+### Cadastro por e-mail: fechado em 2026-08-19
+
+O primeiro cadastro em aparelho real (2026-08-18) chegou até o e-mail e parou
+ali: o botão não era clicável e o link colado no Chrome deu "endereço
+inválido". A investigação achou **quatro** defeitos encadeados, não um — e os
+três de baixo estavam escondidos atrás do primeiro:
+
+1. **O link não é clicável nem colável.** `familyfinance://` não é `http(s)`.
+   Corrigido com a ponte `/abrir/<rota>` na própria API (D-089, docs/26 §2.8):
+   uma página https com um botão, que não consome o token (D-090) e só atende
+   quatro rotas de uma lista fechada (D-091).
+2. **O app descartava o token mesmo se o link abrisse.** `linking.config.screens`
+   não mapeava `verificar-email` nem `entrar` — as duas caem na mesma tela e se
+   distinguem por um parâmetro que não está no caminho. Corrigido com um
+   `getStateFromPath` próprio (D-095).
+3. **O token durava 1h**, e o e-mail costuma ser lido no dia seguinte. Agora 24h
+   (D-093).
+4. **Não havia como pedir outro link.** Cadastrar de novo respondia "tentativa
+   de cadastro" e o login recusava com `EMAIL_NOT_VERIFIED`: conta inutilizável
+   para sempre. Agora o cadastro repetido em conta não confirmada reenvia o
+   link, sem enfraquecer a anti-enumeração (D-094).
+
+API na revisão `primatewallet-api-00004-fkz` com `PUBLIC_BASE_URL` (obrigatória
+em produção, D-092). APK `1.0.1` (versionCode 2) em `dist/`. 200 testes na API,
+11 novos entre a ponte e o reenvio.
+
+**Flake observado**: `tests/notification.test.ts > adiar o vencimento troca o
+aviso` falhou duas vezes seguidas e passou nas seguintes, com e sem as mudanças
+acima — bisect confirmou que não é regressão. Depende de data/hora do ciclo e
+merece investigação própria.
+
 ### Bloqueios de responsabilidade humana
 
 Nenhum destes sai por código, e todos estão registrados também em
@@ -649,12 +680,84 @@ Nenhum destes sai por código, e todos estão registrados também em
 1. **macOS com Xcode** — build e gate visual do iOS.
 2. **Contas de loja** (App Store Connect, Play Console) e certificados.
 3. **Revisão jurídica** das minutas em `docs/legal/`.
-4. **Provedor de e-mail transacional** — a porta `Mailer` está pronta; em
-   desenvolvimento o link vai para o log.
+4. ~~**Provedor de e-mail transacional**~~ — **resolvido em 2026-08-18.**
+   `createResendMailer` fala com a API do Resend (sem SDK), remetente
+   `nao-responda@primatetechnology.com`, domínio verificado — conferido pelo
+   destinatário de simulação do Resend. `RESEND_API_KEY` virou obrigatória em
+   produção: sem ela o cadastro criava conta que ninguém confirmava. A página
+   `https://` que faltava entrou em 2026-08-19 (ver abaixo).
 5. **Bucket S3-compatível** para anexos — registro e caminho escopado prontos.
-6. **DSN do Sentry** e infraestrutura de homologação e produção.
+6. ~~**DSN do Sentry**~~ — **resolvido em 2026-08-18.** O DSN virou o segredo
+   `primatewallet-sentry-dsn` e a revisão `primatewallet-api-00002-ct8` subiu
+   com `APP_ENV=production` e `SENTRY_TRACES_SAMPLE_RATE=0.1`; `/health`
+   responde `"environment":"production"`. O lado do código já estava pronto:
+   `http/error-handler.ts` reporta os 5xx explicitamente, porque o handler
+   encerra o erro ali e o `Sentry.init` sozinho só veria queda de container.
+   Os 4xx continuam fora do Sentry — recusa de regra é fluxo, não falha.
 7. **FCM/APNs** para push.
 8. **Aparelhos reais** para teste de dispositivo e leitor de tela.
+
+### Ambiente no ar — 2026-08-11
+
+Runbook completo em `docs/26-DEPLOY.md`.
+
+| Peça | Onde |
+| --- | --- |
+| Banco | Supabase `gswyvksaksuparnatpdg`, São Paulo, via pooler em modo sessão |
+| Backend | Cloud Run `primatewallet-api`, `southamerica-east1`, projeto `primate-wallet-10` |
+| App | `com.primatetechnology.wallet`, assinado com chave de upload própria |
+
+Conferido de dentro do Cloud Run: `/health` com `database: "ok"`; as 20
+migrações aplicadas; 24 tabelas com RLS; `ff_app` sem identidade enxerga zero
+linhas e recebe `42501` em `auth_tokens`.
+
+Três coisas que o caminho até aqui revelou, e que não eram previstas:
+
+1. **O pooler do Supabase usa CA própria** (auto-assinada). O runtime conecta com
+   `rejectUnauthorized: true`, então a conexão morria em
+   `SELF_SIGNED_CERT_IN_CHAIN` — reportada pelo `/health` apenas como
+   `database: "error"`. Corrigido ensinando a raiz por `DATABASE_SSL_CA` (PEM em
+   base64, validado no startup), e não baixando a verificação: o que trafega ali
+   é a credencial do banco. A raiz veio por HTTPS da Supabase e foi conferida
+   contra a que o pooler apresenta no fio.
+2. **`migrate.mjs` e `smoke.mjs` conectavam sem TLS.** Contra um banco
+   gerenciado, isso põe a credencial de migração na rede aberta. A política de
+   TLS agora vive em `apps/api/scripts/ssl.mjs`, um lugar só, espelhando
+   `db/pool.ts`.
+3. **`smoke.mjs` não funciona contra um ambiente real** — dois defeitos
+   anteriores a este trabalho, detalhados em `docs/26-DEPLOY.md` §4.1. O
+   principal: ele usa a conexão de migração para escrever, e com `FORCE ROW
+   LEVEL SECURITY` sem policy para `ff_migrator` o `UPDATE` afeta zero linhas
+   **em silêncio**, fazendo o teste acusar o passo errado.
+
+Também novo: `apps/api/scripts/check-db.mjs` (`npm run check:db`), que separa as
+três falhas de conexão que se parecem no log — host do pooler errado, roles
+inexistentes e cadeia de certificado.
+
+### Troca de conta Google — 2026-08-18
+
+O deploy saiu da conta pessoal e passou para `primate.tech.app@gmail.com`,
+projeto `primate-wallet-10` (nº 479194115127), com conta de faturamento
+própria. O Supabase já estava na conta nova; só o Google mudou. O serviço foi
+renomeado de `ff-api` para `primatewallet-api` e o `applicationId` do Android,
+de `com.familyfinance` para `com.primatetechnology.wallet` — feito agora porque
+depois de publicar na Play Store esse identificador é imutável.
+
+Quatro coisas que este caminho revelou:
+
+4. **`gcloud auth login` sequestra a configuração ativa.** Ele trocou a conta da
+   configuração `default`, que é a do Primate_Medicine. O isolamento correto é
+   uma configuração nomeada criada com `--no-activate` e escolhida por
+   `CLOUDSDK_ACTIVE_CONFIG_NAME`, nunca `gcloud config set` no shell comum.
+5. **O Cloud Run não mapeia domínio em `southamerica-east1`** (`501`). A decisão
+   e as alternativas descartadas estão em `docs/26-DEPLOY.md` §0.
+6. **O Gradle não sabe que `FF_API_URL` mudou.** Variável de ambiente não é
+   entrada de tarefa, então `createBundleReleaseJsAndAssets` fica `UP-TO-DATE` e
+   o APK sai com a URL anterior — build verde, assinatura certa, app apontando
+   para o lugar errado. Só se pega extraindo o bundle e procurando a URL.
+7. **O componente `beta` do gcloud não está instalado** e instalá-lo exige admin
+   em `C:Program Files (x86)`. Onde ele faria falta, a API REST do Cloud Run
+   resolve com `gcloud auth print-access-token`.
 
 ### Gate do tema escuro — FECHADO
 

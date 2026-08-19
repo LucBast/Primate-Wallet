@@ -78,6 +78,18 @@ def enableProguardInReleaseBuilds = false
  */
 def jscFlavor = 'io.github.react-native-community:jsc-android:2026004.+'
 
+/**
+ * Versão do app, em UM lugar só: os dois valores alimentam o `defaultConfig` e
+ * também o nome do arquivo gerado, logo abaixo. Separados, o APK acabaria com
+ * um número no nome e outro dentro dele.
+ *
+ * `versionCode` é o que o Android compara para decidir se é atualização; ele
+ * PRECISA subir a cada APK entregue, senão o instalador recusa. `versionName` é
+ * só o rótulo humano.
+ */
+def appVersionName = "1.1.0"
+def appVersionCode = 4
+
 android {
     ndkVersion rootProject.ext.ndkVersion
     buildToolsVersion rootProject.ext.buildToolsVersion
@@ -85,11 +97,24 @@ android {
 
     namespace "com.familyfinance"
     defaultConfig {
-        applicationId "com.familyfinance"
+        applicationId "com.primatetechnology.wallet"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode appVersionCode
+        versionName appVersionName
+    }
+
+    /**
+     * Nome do arquivo: `primatewallet-<versionName>-build<versionCode>.apk`.
+     *
+     * O padrão `app-release.apk` do template não diz qual build é qual: dois
+     * APKs em pastas diferentes ficam indistinguíveis, e já quase instalei o
+     * errado. Com o numero no nome, o arquivo se identifica sozinho.
+     */
+    applicationVariants.all { variant ->
+        variant.outputs.all { output ->
+            outputFileName = "primatewallet-${appVersionName}-build${appVersionCode}.apk"
+        }
     }
     signingConfigs {
         debug {
@@ -97,6 +122,27 @@ android {
             storePassword 'android'
             keyAlias 'androiddebugkey'
             keyPassword 'android'
+        }
+        /**
+         * Chave de UPLOAD, a que assina o que sai daqui para o telefone e, um
+         * dia, para a Play Store.
+         *
+         * O keystore e as senhas NÃO moram no repositório: vêm de propriedades
+         * do Gradle definidas em `~/.gradle/gradle.properties`, fora da árvore
+         * versionada. Numa máquina sem elas, `release` simplesmente não é
+         * declarado — e o `whenReady` lá embaixo recusa a build em vez de
+         * assinar com a chave de debug e devolver um APK que parece pronto.
+         *
+         * Perder este keystore significa não conseguir mais ATUALIZAR o app
+         * instalado: o Android recusa uma atualização assinada por outra chave.
+         */
+        if (project.hasProperty('FF_UPLOAD_STORE_FILE')) {
+            release {
+                storeFile file(FF_UPLOAD_STORE_FILE)
+                storePassword FF_UPLOAD_STORE_PASSWORD
+                keyAlias FF_UPLOAD_KEY_ALIAS
+                keyPassword FF_UPLOAD_KEY_PASSWORD
+            }
         }
     }
     buildTypes {
@@ -129,12 +175,43 @@ android {
             manifestPlaceholders = [usesCleartextTraffic: "true"]
         }
         release {
-            // Caution! In production, you need to generate your own keystore file.
-            // see https://reactnative.dev/docs/signed-apk-android.
-            signingConfig signingConfigs.debug
+            // Assinado com a chave de upload própria (signingConfigs acima).
+            // Quando ela não está configurada nesta máquina, o bloco `release`
+            // nem existe — e a build para, em vez de cair na chave de debug.
+            signingConfig project.hasProperty('FF_UPLOAD_STORE_FILE')
+                ? signingConfigs.release
+                : null
             minifyEnabled enableProguardInReleaseBuilds
             proguardFiles getDefaultProguardFile("proguard-android.txt"), "proguard-rules.pro"
         }
+    }
+}
+
+/**
+ * Recusar um `release` sem chave própria, em vez de entregá-lo assinado com a
+ * chave de debug.
+ *
+ * Um APK assim instala e abre — o problema aparece semanas depois, na hora de
+ * publicar ou de atualizar, quando já não dá para trocar a chave sem desinstalar
+ * o app e perder o banco local. Melhor falhar agora, com o motivo escrito.
+ *
+ * A verificação é por nome exato de tarefa: `assembleValidation` continua
+ * funcionando sem chave nenhuma, que é o ponto daquele tipo de build.
+ */
+gradle.taskGraph.whenReady { graph ->
+    def releaseTasks = ['assembleRelease', 'bundleRelease', 'installRelease']
+    def pedindoRelease = graph.allTasks.any { releaseTasks.contains(it.name) }
+    if (pedindoRelease && !project.hasProperty('FF_UPLOAD_STORE_FILE')) {
+        throw new GradleException(
+            "Build de release sem chave de upload.\n" +
+            "Defina em ~/.gradle/gradle.properties (fora do repositório):\n" +
+            "  FF_UPLOAD_STORE_FILE=<caminho do .keystore>\n" +
+            "  FF_UPLOAD_STORE_PASSWORD=...\n" +
+            "  FF_UPLOAD_KEY_ALIAS=...\n" +
+            "  FF_UPLOAD_KEY_PASSWORD=...\n" +
+            "Ver docs/26-DEPLOY.md. Para testar na rede local sem chave, use " +
+            "assembleValidation."
+        )
     }
 }
 
