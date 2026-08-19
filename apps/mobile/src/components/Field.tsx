@@ -40,7 +40,7 @@ export function Field({
           {
             borderRadius: radius.lg,
             backgroundColor: colors.surfaceElevated,
-            borderColor: error ? colors.danger : colors.border,
+            borderColor: error ? colors.danger : colors.borderStrong,
           },
         ]}
       >

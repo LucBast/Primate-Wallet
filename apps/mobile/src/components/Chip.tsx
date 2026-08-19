@@ -41,7 +41,7 @@ export function SelectorChip({
         styles.selector,
         {
           backgroundColor: empty ? 'transparent' : colors.brandSoft,
-          borderColor: empty ? colors.border : 'transparent',
+          borderColor: empty ? colors.borderStrong : 'transparent',
           borderRadius: radius.md,
           borderStyle: empty ? 'dashed' : 'solid',
           borderWidth: empty ? 1.5 : 0,
@@ -92,7 +92,7 @@ export function ChoiceChip({
         styles.choice,
         {
           backgroundColor: selected ? selectedColor : 'transparent',
-          borderColor: selected ? selectedColor : colors.border,
+          borderColor: selected ? selectedColor : colors.borderStrong,
           borderRadius: radius.md,
         },
       ]}

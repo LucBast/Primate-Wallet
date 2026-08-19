@@ -37,7 +37,7 @@ export function MonthPicker({
         styles.pill,
         {
           backgroundColor: colors.surfaceElevated,
-          borderColor: colors.border,
+          borderColor: colors.borderStrong,
           borderRadius: radius.md,
         },
         style,

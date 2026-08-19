@@ -12,6 +12,13 @@ export const light = {
   surface: '#FAF9F7', surfaceElevated: '#FFFFFF',
   textPrimary: '#1C1B1A', textSecondary: '#6B6862', textTertiary: '#3E3C38',
   border: 'rgba(28,27,26,0.10)', divider: 'rgba(28,27,26,0.06)',
+  // Contorno de CONTROLE (campo, seletor, chip). A `border` de 10% dá 1,23:1
+  // contra o branco do card -- quatro vezes abaixo do mínimo de 3:1 que a
+  // WCAG 1.4.11 exige de componente de interface, e o campo sumia para quem
+  // tem vista cansada. Sólida, e não rgba: alfa muda de contraste conforme o
+  // que estiver atrás, e aí a garantia deixa de valer. 3,31:1 sobre o card,
+  // 3,15:1 sobre a página.
+  borderStrong: '#908D87',
   chipNeutral: '#E9E7E2',
   cardNavy: '#2B3550', cardWine: '#7A3A5E',        // cores decorativas de cartões
   toastBg: '#1C1B1A', toastAction: '#7FD0C2',
@@ -28,6 +35,8 @@ export const dark = {
   surface: '#161514', surfaceElevated: '#201F1D',
   textPrimary: '#F2F0EC', textSecondary: '#8F8B83', textTertiary: '#C9C5BE',
   border: 'rgba(242,240,236,0.10)', divider: 'rgba(242,240,236,0.06)',
+  // 3,24:1 sobre o card, 3,59:1 sobre a página. Ver a nota no tema claro.
+  borderStrong: '#706E6B',
   chipNeutral: '#33312E',
   cardNavy: '#2B3550', cardWine: '#7A3A5E',
   toastBg: '#33312E', toastAction: '#7FD0C2',

@@ -63,7 +63,9 @@ export function Button({
       ? colors.brand
       : variant === 'destructive'
         ? colors.danger
-        : colors.border;
+        : // Botão secundário é controle: o contorno é a única coisa que o separa do
+          // fundo, então precisa dos 3:1 da WCAG 1.4.11, não da linha decorativa.
+          colors.borderStrong;
 
   const inactive = disabled || loading;
 

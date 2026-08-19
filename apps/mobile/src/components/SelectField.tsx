@@ -43,7 +43,7 @@ export function SelectField({
           styles.card,
           {
             backgroundColor: colors.surfaceElevated,
-            borderColor: error === undefined ? colors.border : colors.danger,
+            borderColor: error === undefined ? colors.borderStrong : colors.danger,
             borderRadius: radius.lg,
             opacity: pressed ? 0.7 : 1,
           },
