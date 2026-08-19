@@ -22,6 +22,9 @@ import type {
   Settlement,
   SettlePlannedEntryRequest,
   SettleResponse,
+  OffsetSettlePlannedEntryRequest,
+  OffsetSettleResponse,
+  OffsetCandidateList,
 } from '@ff/api-contracts';
 import { withUserTransaction, type Database, type PoolClient } from '../../db/pool.js';
 import { insertAuditLog } from '../auth/repository.js';
@@ -347,6 +350,232 @@ export function createSettlementService(deps: {
      * Estorna uma baixa: a linha permanece, marcada; a movimentação recebe um
      * REVERSAL; e a conta prevista reabre.
      */
+    /**
+     * Transações que PODEM compensar esta conta prevista.
+     *
+     * O filtro é o que impede o usuário de escolher errado: mesma família,
+     * postada, não estornada, ainda não usada em outra baixa, não nascida de
+     * uma baixa (senão a quitação de uma conta quitaria outra), e na direção
+     * certa — despesa abate conta a pagar, receita abate conta a receber.
+     */
+    async listOffsetCandidates(
+      userId: string,
+      householdId: string,
+      entryId: string,
+    ): Promise<OffsetCandidateList> {
+      return withUserTransaction(db, userId, async (client) => {
+        await context(client, householdId, userId);
+
+        const entry = await client.query<{ nature: 'PAYABLE' | 'RECEIVABLE' }>(
+          'SELECT nature FROM planned_entries WHERE id = $1 AND household_id = $2',
+          [entryId, householdId],
+        );
+        const nature = entry.rows[0]?.nature;
+        if (nature === undefined) throw new DomainError('NOT_FOUND');
+
+        const tipos = nature === 'PAYABLE' ? ['EXPENSE', 'CARD_PURCHASE'] : ['INCOME'];
+
+        const rows = await client.query<{
+          transaction_id: string;
+          description: string;
+          amount_minor: string;
+          occurred_at: Date;
+          account_name: string | null;
+          category_name: string | null;
+        }>(
+          `SELECT t.id AS transaction_id, t.description, t.amount_minor, t.occurred_at,
+                  a.name AS account_name, c.name AS category_name
+             FROM transactions t
+             LEFT JOIN accounts a ON a.id = t.account_id
+             LEFT JOIN categories c ON c.id = t.category_id
+            WHERE t.household_id = $1
+              AND t.transaction_type = ANY($2::text[])
+              AND t.status = 'POSTED'
+              AND t.source <> 'SETTLEMENT'
+              AND t.reversed_transaction_id IS NULL
+              AND NOT EXISTS (
+                    SELECT 1 FROM transactions r
+                     WHERE r.reversed_transaction_id = t.id AND r.status = 'POSTED')
+              AND NOT EXISTS (
+                    SELECT 1 FROM settlements s
+                     WHERE s.transaction_id = t.id AND s.reversed_at IS NULL)
+            ORDER BY t.occurred_at DESC
+            LIMIT 100`,
+          [householdId, tipos],
+        );
+
+        return {
+          items: rows.rows.map((r) => ({
+            transactionId: r.transaction_id,
+            description: r.description,
+            amountMinor: Number(r.amount_minor),
+            occurredAt: r.occurred_at.toISOString(),
+            accountName: r.account_name,
+            categoryName: r.category_name,
+          })),
+        };
+      });
+    },
+
+    /**
+     * Baixa por compensação: abate a conta prevista com transações que já
+     * existem, sem mover dinheiro de novo.
+     *
+     * Cada transação vira UMA baixa, pelo valor exato dela — reaproveitando a
+     * transação em vez de criar outra. É essa reutilização que evita contar a
+     * mesma despesa duas vezes: o dinheiro do conserto saiu quando o conserto
+     * foi pago, e agora ele quita parte do aluguel.
+     *
+     * A transação NÃO é reescrita: continua com a categoria e a descrição
+     * originais. Lançamento postado não se edita (docs/04), e o relatório fica
+     * mais fiel assim — R$ 500 em Manutenção e R$ 1.500 em Aluguel somam os
+     * R$ 2.000 devidos, cada centavo onde de fato foi gasto.
+     */
+    async settleWithOffset(
+      userId: string,
+      householdId: string,
+      entryId: string,
+      input: OffsetSettlePlannedEntryRequest,
+      ctx: RequestContext,
+    ): Promise<OffsetSettleResponse> {
+      const settlementIds = await withUserTransaction(
+        db,
+        userId,
+        async (client): Promise<string[]> => {
+          const { role } = await context(client, householdId, userId);
+          if (!OPERATORS.includes(role)) throw new DomainError('INSUFFICIENT_PERMISSION');
+
+          const already = await findByKey(client, householdId, input.idempotencyKey);
+          if (already) return [already.id];
+
+          const locked = await client.query<{
+            id: string;
+            nature: 'PAYABLE' | 'RECEIVABLE';
+            version: number;
+            canceled_at: Date | null;
+          }>(
+            `SELECT id, nature, version, canceled_at
+               FROM planned_entries WHERE id = $1 AND household_id = $2 FOR UPDATE`,
+            [entryId, householdId],
+          );
+          const entry = locked.rows[0];
+          if (!entry) throw new DomainError('NOT_FOUND');
+          if (entry.canceled_at !== null) {
+            throw new DomainError('ALREADY_SETTLED', undefined, 'Esta conta foi cancelada.');
+          }
+          if (entry.version !== input.expectedVersion) {
+            throw new DomainError('VERSION_CONFLICT', { currentVersion: entry.version });
+          }
+
+          const outstandingResult = await client.query<{ outstanding: string }>(
+            'SELECT app.planned_entry_outstanding($1) AS outstanding',
+            [entryId],
+          );
+          const outstanding = Number(outstandingResult.rows[0]?.outstanding ?? 0);
+          if (outstanding <= 0) throw new DomainError('ALREADY_SETTLED');
+
+          const tipos = entry.nature === 'PAYABLE' ? ['EXPENSE', 'CARD_PURCHASE'] : ['INCOME'];
+
+          // `FOR UPDATE` nas transações: duas compensações simultâneas com a
+          // mesma transação precisam serializar aqui, senão as duas passariam
+          // na checagem e o índice único rejeitaria a segunda com erro de banco.
+          const escolhidas = await client.query<{
+            id: string;
+            amount_minor: string;
+            account_id: string;
+          }>(
+            `SELECT t.id, t.amount_minor, t.account_id
+               FROM transactions t
+              WHERE t.id = ANY($1::uuid[])
+                AND t.household_id = $2
+                AND t.transaction_type = ANY($3::text[])
+                AND t.status = 'POSTED'
+                AND t.source <> 'SETTLEMENT'
+                AND t.reversed_transaction_id IS NULL
+                AND NOT EXISTS (
+                      SELECT 1 FROM transactions r
+                       WHERE r.reversed_transaction_id = t.id AND r.status = 'POSTED')
+                AND NOT EXISTS (
+                      SELECT 1 FROM settlements s
+                       WHERE s.transaction_id = t.id AND s.reversed_at IS NULL)
+              FOR UPDATE`,
+            [input.transactionIds, householdId, tipos],
+          );
+
+          if (escolhidas.rowCount !== input.transactionIds.length) {
+            throw new DomainError(
+              'VALIDATION_ERROR',
+              undefined,
+              'Alguma das movimentações escolhidas não serve: pode estar estornada, ' +
+                'já usada em outra baixa, ou ser do tipo errado para esta conta.',
+            );
+          }
+
+          const total = escolhidas.rows.reduce((soma, r) => soma + Number(r.amount_minor), 0);
+          if (total > outstanding) {
+            throw new DomainError('OUTSTANDING_AMOUNT_EXCEEDED', {
+              outstandingMinor: outstanding,
+            });
+          }
+
+          const criados: string[] = [];
+          for (const [indice, tx] of escolhidas.rows.entries()) {
+            const settlementId = randomUUID();
+            await client.query(
+              `INSERT INTO settlements (
+                 id, household_id, planned_entry_id, transaction_id, account_id,
+                 principal_amount_minor, net_amount_minor, kind, settled_at,
+                 idempotency_key, created_by
+               ) VALUES ($1, $2, $3, $4, $5, $6, 0, 'OFFSET', $7, $8, $9)`,
+              [
+                settlementId,
+                householdId,
+                entryId,
+                tx.id,
+                tx.account_id,
+                Number(tx.amount_minor),
+                input.settledAt,
+                // Uma chave por transação: repetir o comando não duplica nada,
+                // e a primeira baixa é a que `findByKey` encontra.
+                indice === 0 ? input.idempotencyKey : `${input.idempotencyKey}:${indice}`,
+                userId,
+              ],
+            );
+            criados.push(settlementId);
+          }
+
+          await client.query(
+            `UPDATE planned_entries
+                SET status = app.planned_entry_status(id), version = version + 1
+              WHERE id = $1`,
+            [entryId],
+          );
+
+          await insertAuditLog(client, {
+            householdId,
+            actorUserId: userId,
+            entityType: 'planned_entry',
+            entityId: entryId,
+            action: 'PLANNED_ENTRY_SETTLED_BY_OFFSET',
+            metadata: { transactionIds: input.transactionIds, totalMinor: total },
+            requestId: ctx.requestId,
+          });
+
+          return criados;
+        },
+      );
+
+      const [plannedEntry, settlements] = await Promise.all([
+        readPlannedEntry(userId, householdId, entryId),
+        Promise.all(settlementIds.map((id) => this.get(userId, householdId, id))),
+      ]);
+      return {
+        plannedEntry,
+        settlements,
+        offsetTotalMinor: settlements.reduce((soma, s) => soma + s.principalAmountMinor, 0),
+      };
+    },
+
     async reverse(
       userId: string,
       householdId: string,

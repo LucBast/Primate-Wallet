@@ -31,6 +31,8 @@ import type {
   PlannedEntry,
   PlanningList,
   UpdatePlannedEntryRequest,
+  CancelPlannedEntryResponse,
+  UndoCancellationResponse,
 } from '@ff/api-contracts';
 import { withUserTransaction, type Database, type PoolClient } from '../../db/pool.js';
 import { insertAuditLog } from '../auth/repository.js';
@@ -541,19 +543,34 @@ export function createPlanningService(deps: { readonly db: Database }) {
     },
 
     /** Cancelar não apaga: preserva o registro e o histórico de baixas. */
+    /**
+     * Cancelar. `ONLY_THIS` é o comportamento de sempre; `THIS_AND_FUTURE`
+     * alcança as contas seguintes da mesma série.
+     *
+     * Duas regras que não mudam com o alcance: conta com baixa registrada NÃO é
+     * cancelada (cancelar reescreveria história — o caminho é estornar), e nada
+     * é apagado, só marcado. É isso que deixa `undoCancellation` ser honesto.
+     */
     async cancel(
       userId: string,
       householdId: string,
       entryId: string,
       input: CancelPlannedEntryRequest,
       ctx: RequestContext,
-    ): Promise<PlannedEntry> {
+    ): Promise<CancelPlannedEntryResponse> {
       return withUserTransaction(db, userId, async (client) => {
         const { role, timezone } = await householdContext(client, householdId, userId);
         if (!OPERATORS.includes(role)) throw new DomainError('INSUFFICIENT_PERMISSION');
 
-        const current = await client.query<{ version: number; canceled_at: Date | null }>(
-          'SELECT version, canceled_at FROM planned_entries WHERE id = $1 AND household_id = $2 FOR UPDATE',
+        const current = await client.query<{
+          version: number;
+          canceled_at: Date | null;
+          due_date: Date;
+          recurrence_rule_id: string | null;
+          installment_group_id: string | null;
+        }>(
+          `SELECT version, canceled_at, due_date, recurrence_rule_id, installment_group_id
+             FROM planned_entries WHERE id = $1 AND household_id = $2 FOR UPDATE`,
           [entryId, householdId],
         );
         const before = current.rows[0];
@@ -581,12 +598,80 @@ export function createPlanningService(deps: { readonly db: Database }) {
           );
         }
 
+        const batchId = randomUUID();
         await client.query(
           `UPDATE planned_entries
-              SET status = 'CANCELED', canceled_at = now(), cancel_reason = $3, version = version + 1
+              SET status = 'CANCELED', canceled_at = now(), cancel_reason = $3,
+                  cancel_batch_id = $4, version = version + 1
             WHERE id = $1 AND household_id = $2`,
-          [entryId, householdId, input.reason],
+          [entryId, householdId, input.reason, batchId],
         );
+
+        let canceledCount = 1;
+        let skippedWithSettlements = 0;
+
+        if (input.scope === 'THIS_AND_FUTURE') {
+          const serie = before.recurrence_rule_id ?? before.installment_group_id;
+          if (serie === null) {
+            throw new DomainError(
+              'VALIDATION_ERROR',
+              undefined,
+              'Esta conta não faz parte de uma série: só é possível cancelar ela mesma.',
+            );
+          }
+
+          // `outstanding = original` é o mesmo teste que o caminho de uma conta
+          // só faz: sem nenhuma baixa. Aqui ele filtra em vez de recusar — uma
+          // parcela já paga no meio da série não deve derrubar o cancelamento
+          // das outras.
+          const futuras = await client.query<{ id: string }>(
+            `SELECT e.id
+               FROM planned_entries e
+              WHERE e.household_id = $1
+                AND (e.recurrence_rule_id = $2 OR e.installment_group_id = $2)
+                AND e.id <> $3
+                AND e.due_date >= $4
+                AND e.canceled_at IS NULL
+                AND app.planned_entry_outstanding(e.id) = e.original_amount_minor
+              FOR UPDATE`,
+            [householdId, serie, entryId, before.due_date],
+          );
+
+          const comBaixa = await client.query<{ n: string }>(
+            `SELECT count(*)::text AS n
+               FROM planned_entries e
+              WHERE e.household_id = $1
+                AND (e.recurrence_rule_id = $2 OR e.installment_group_id = $2)
+                AND e.id <> $3
+                AND e.due_date >= $4
+                AND e.canceled_at IS NULL
+                AND app.planned_entry_outstanding(e.id) <> e.original_amount_minor`,
+            [householdId, serie, entryId, before.due_date],
+          );
+          skippedWithSettlements = Number(comBaixa.rows[0]?.n ?? 0);
+
+          if (futuras.rowCount !== null && futuras.rowCount > 0) {
+            await client.query(
+              `UPDATE planned_entries
+                  SET status = 'CANCELED', canceled_at = now(), cancel_reason = $2,
+                      cancel_batch_id = $3, version = version + 1
+                WHERE id = ANY($1::uuid[])`,
+              [futuras.rows.map((r) => r.id), input.reason, batchId],
+            );
+            canceledCount += futuras.rowCount;
+          }
+
+          // Desligar a regra é o que impede o gerador de repor amanhã o que
+          // acabou de ser cancelado. Recorrência sem fim depende disto.
+          if (before.recurrence_rule_id !== null) {
+            await client.query(
+              `UPDATE recurrence_rules SET is_active = false, updated_at = now(),
+                      version = version + 1
+                WHERE id = $1 AND household_id = $2`,
+              [before.recurrence_rule_id, householdId],
+            );
+          }
+        }
 
         await insertAuditLog(client, {
           householdId,
@@ -594,7 +679,13 @@ export function createPlanningService(deps: { readonly db: Database }) {
           entityType: 'planned_entry',
           entityId: entryId,
           action: 'PLANNED_ENTRY_CANCELED',
-          metadata: { reason: input.reason },
+          metadata: {
+            reason: input.reason,
+            scope: input.scope,
+            batchId,
+            canceledCount,
+            skippedWithSettlements,
+          },
           requestId: ctx.requestId,
         });
 
@@ -604,7 +695,80 @@ export function createPlanningService(deps: { readonly db: Database }) {
         );
         /* c8 ignore next */
         if (!rows.rows[0]) throw new DomainError('NOT_FOUND');
-        return toEntry(rows.rows[0], familyToday(timezone));
+        return {
+          batchId,
+          plannedEntry: toEntry(rows.rows[0], familyToday(timezone)),
+          canceledCount,
+          skippedWithSettlements,
+        };
+      });
+    },
+
+    /**
+     * Desfaz um cancelamento inteiro, pelo lote.
+     *
+     * Pelo LOTE, e não "descancela tudo que está cancelado": o lote é a única
+     * coisa que distingue o que esta ação cancelou do que já estava cancelado
+     * antes, por outro motivo, de propósito.
+     *
+     * Não devolve conta que ganhou baixa depois — não é possível, cancelada não
+     * aceita baixa — nem religa a regra de recorrência sozinha: religar refaz o
+     * futuro, e quem desfaz um cancelamento quer o passado de volta, não uma
+     * série nova gerando. Reativar a recorrência é ação própria.
+     */
+    async undoCancellation(
+      userId: string,
+      householdId: string,
+      batchId: string,
+      ctx: RequestContext,
+    ): Promise<UndoCancellationResponse> {
+      return withUserTransaction(db, userId, async (client) => {
+        const { role, timezone } = await householdContext(client, householdId, userId);
+        if (!OPERATORS.includes(role)) throw new DomainError('INSUFFICIENT_PERMISSION');
+
+        const lote = await client.query<{ id: string }>(
+          `SELECT id FROM planned_entries
+            WHERE household_id = $1 AND cancel_batch_id = $2 AND canceled_at IS NOT NULL
+            ORDER BY due_date
+            FOR UPDATE`,
+          [householdId, batchId],
+        );
+        if (lote.rowCount === null || lote.rowCount === 0) {
+          throw new DomainError(
+            'NOT_FOUND',
+            undefined,
+            'Este cancelamento não existe mais ou já foi desfeito.',
+          );
+        }
+
+        await client.query(
+          `UPDATE planned_entries
+              SET status = 'OPEN', canceled_at = NULL, cancel_reason = NULL,
+                  cancel_batch_id = NULL, version = version + 1
+            WHERE household_id = $1 AND cancel_batch_id = $2`,
+          [householdId, batchId],
+        );
+
+        await insertAuditLog(client, {
+          householdId,
+          actorUserId: userId,
+          entityType: 'planned_entry',
+          entityId: lote.rows[0]?.id ?? batchId,
+          action: 'PLANNED_ENTRY_CANCELLATION_UNDONE',
+          metadata: { batchId, restoredCount: lote.rowCount },
+          requestId: ctx.requestId,
+        });
+
+        const rows = await client.query<EntryRow>(
+          `SELECT ${ENTRY_SELECT} ${ENTRY_FROM} WHERE e.id = $1`,
+          [lote.rows[0]?.id],
+        );
+        /* c8 ignore next */
+        if (!rows.rows[0]) throw new DomainError('NOT_FOUND');
+        return {
+          restoredCount: lote.rowCount,
+          plannedEntry: toEntry(rows.rows[0], familyToday(timezone)),
+        };
       });
     },
 

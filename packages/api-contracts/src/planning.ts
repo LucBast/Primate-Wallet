@@ -117,11 +117,45 @@ export const updatePlannedEntryRequestSchema = z.object({
 });
 export type UpdatePlannedEntryRequest = z.infer<typeof updatePlannedEntryRequestSchema>;
 
+/**
+ * Alcance do cancelamento. `THIS_AND_FUTURE` vale para conta prevista que
+ * nasceu de uma série — recorrência ou parcelamento — e alcança as de
+ * vencimento igual ou posterior a esta. Também desliga a regra de recorrência:
+ * sem isso o gerador repõe amanhã o que foi cancelado hoje.
+ */
+export const cancelScopeSchema = z.enum(['ONLY_THIS', 'THIS_AND_FUTURE']);
+export type CancelScope = z.infer<typeof cancelScopeSchema>;
+
 export const cancelPlannedEntryRequestSchema = z.object({
   reason: shortTextSchema.max(200),
   expectedVersion: z.int().nonnegative(),
+  scope: cancelScopeSchema.default('ONLY_THIS'),
 });
 export type CancelPlannedEntryRequest = z.infer<typeof cancelPlannedEntryRequestSchema>;
+
+/**
+ * Resposta do cancelamento. `batchId` é o que torna DESFAZER possível: ele
+ * identifica exatamente as contas que ESTA ação cancelou, sem varrer junto
+ * cancelamentos anteriores.
+ */
+export const cancelPlannedEntryResponseSchema = z.object({
+  batchId: uuidSchema,
+  /** A conta pedida, já atualizada. */
+  plannedEntry: plannedEntrySchema,
+  canceledCount: z.int().min(1),
+  /**
+   * Contas da série que NÃO foram canceladas por já terem baixa registrada.
+   * Cancelar uma delas reescreveria história; o caminho é estornar a baixa.
+   */
+  skippedWithSettlements: z.int().nonnegative(),
+});
+export type CancelPlannedEntryResponse = z.infer<typeof cancelPlannedEntryResponseSchema>;
+
+export const undoCancellationResponseSchema = z.object({
+  restoredCount: z.int().nonnegative(),
+  plannedEntry: plannedEntrySchema,
+});
+export type UndoCancellationResponse = z.infer<typeof undoCancellationResponseSchema>;
 
 /** Resumo do mês para os três mini-cards da tela 1d. */
 export const planningSummarySchema = z.object({
@@ -171,6 +205,51 @@ export const settlePlannedEntryRequestSchema = z.object({
   expectedVersion: z.int().nonnegative(),
 });
 export type SettlePlannedEntryRequest = z.infer<typeof settlePlannedEntryRequestSchema>;
+
+/**
+ * Baixa por COMPENSAÇÃO: abate a conta prevista com transações que já existem,
+ * em vez de mover dinheiro de novo.
+ *
+ * O caso que originou isto: consertos no apartamento que eram obrigação do
+ * proprietário, abatidos do aluguel. O dinheiro do conserto já saiu quando ele
+ * foi pago; registrar o abatimento como baixa comum criaria uma SEGUNDA saída e
+ * a mesma despesa apareceria duas vezes.
+ *
+ * Cada transação escolhida vira uma baixa parcial pelo valor exato dela. Não há
+ * juros, multa nem desconto: encontro de contas compensa principal.
+ */
+export const offsetSettlePlannedEntryRequestSchema = z.object({
+  /** Transações já postadas, na direção certa (despesa abate conta a pagar). */
+  transactionIds: z.array(uuidSchema).min(1).max(20),
+  settledAt: isoDateSchema,
+  idempotencyKey: idempotencyKeySchema,
+  expectedVersion: z.int().nonnegative(),
+});
+export type OffsetSettlePlannedEntryRequest = z.infer<typeof offsetSettlePlannedEntryRequestSchema>;
+
+export const offsetSettleResponseSchema = z.object({
+  plannedEntry: plannedEntrySchema,
+  settlements: z.array(settlementSchema),
+  /** Soma compensada, para a tela confirmar sem recalcular. */
+  offsetTotalMinor: minorUnitsSchema,
+});
+export type OffsetSettleResponse = z.infer<typeof offsetSettleResponseSchema>;
+
+/** Transação elegível para compensar uma conta prevista. */
+export const offsetCandidateSchema = z.object({
+  transactionId: uuidSchema,
+  description: z.string(),
+  amountMinor: minorUnitsSchema,
+  occurredAt: z.string(),
+  accountName: z.string().nullable(),
+  categoryName: z.string().nullable(),
+});
+export type OffsetCandidate = z.infer<typeof offsetCandidateSchema>;
+
+export const offsetCandidateListSchema = z.object({
+  items: z.array(offsetCandidateSchema),
+});
+export type OffsetCandidateList = z.infer<typeof offsetCandidateListSchema>;
 
 export const settleResponseSchema = z.object({
   plannedEntry: plannedEntrySchema,

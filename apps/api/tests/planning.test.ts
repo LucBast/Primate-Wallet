@@ -398,8 +398,11 @@ describe('edição e cancelamento', () => {
       { reason: 'Cobrança indevida', expectedVersion: entry.version },
     );
     expect(canceled.statusCode).toBe(200);
-    expect(canceled.json().status).toBe('CANCELED');
-    expect(canceled.json().overdue).toBe(false);
+    // A resposta passou a trazer o lote, para permitir DESFAZER (docs/21 D-099).
+    expect(canceled.json().batchId).toBeTruthy();
+    expect(canceled.json().canceledCount).toBe(1);
+    expect(canceled.json().plannedEntry.status).toBe('CANCELED');
+    expect(canceled.json().plannedEntry.overdue).toBe(false);
 
     // O registro continua existindo.
     const still = await get(base, `/households/${base.householdId}/planned-entries/${entry.id}`);

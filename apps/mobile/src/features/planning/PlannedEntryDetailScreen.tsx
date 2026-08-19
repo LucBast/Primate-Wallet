@@ -26,6 +26,8 @@ import { useSessionStore } from '../auth/session-store';
 import { useActiveHousehold } from '../household/household-store';
 import * as api from './planning-api';
 import * as settlementApi from './settlement-api';
+import { OffsetSettleSheet } from './OffsetSettleSheet';
+import { SegmentedControl } from '../../components/Chip';
 
 /** Badge do formato do anexo: "PDF", "JPG" (8g). */
 function formatOf(mimeType: string): string {
@@ -105,6 +107,10 @@ export function PlannedEntryDetailScreen({
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [settlements, setSettlements] = useState<Settlement[]>([]);
   const [cancelReason, setCancelReason] = useState('');
+  const [cancelScope, setCancelScope] = useState<'ONLY_THIS' | 'THIS_AND_FUTURE'>('ONLY_THIS');
+  /** Lote do último cancelamento, enquanto o desfazer estiver na tela. */
+  const [undo, setUndo] = useState<{ batchId: string; canceladas: number } | null>(null);
+  const [offsetOpen, setOffsetOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [working, setWorking] = useState(false);
 
@@ -138,19 +144,42 @@ export function PlannedEntryDetailScreen({
     setWorking(true);
     setError(null);
     try {
-      setEntry(
-        await api.cancelPlannedEntry(accessToken, household.id, entry.id, {
-          reason: cancelReason.trim(),
-          expectedVersion: entry.version,
-        }),
-      );
+      const resultado = await api.cancelPlannedEntry(accessToken, household.id, entry.id, {
+        reason: cancelReason.trim(),
+        expectedVersion: entry.version,
+        scope: cancelScope,
+      });
+      setEntry(resultado.plannedEntry);
       setCancelReason('');
+      setUndo({ batchId: resultado.batchId, canceladas: resultado.canceledCount });
+      if (resultado.skippedWithSettlements > 0) {
+        setError(
+          `${resultado.skippedWithSettlements} conta(s) da série não foram canceladas por já terem baixa. Estorne a baixa antes de cancelar.`,
+        );
+      }
     } catch (cause) {
       setError(cause instanceof ApiRequestError ? cause.message : 'Não foi possível cancelar.');
     } finally {
       setWorking(false);
     }
-  }, [accessToken, cancelReason, entry.id, entry.version, household]);
+  }, [accessToken, cancelReason, cancelScope, entry.id, entry.version, household]);
+
+  const handleUndo = useCallback(async () => {
+    if (!accessToken || !household || undo === null) return;
+    setWorking(true);
+    setError(null);
+    try {
+      const resultado = await api.undoCancellation(accessToken, household.id, undo.batchId);
+      setEntry(resultado.plannedEntry);
+      setUndo(null);
+    } catch (cause) {
+      setError(
+        cause instanceof ApiRequestError ? cause.message : 'Não foi possível desfazer agora.',
+      );
+    } finally {
+      setWorking(false);
+    }
+  }, [accessToken, household, undo]);
 
   const active = entry.status !== 'SETTLED' && entry.status !== 'CANCELED';
   const status = statusOf(entry);
@@ -348,6 +377,34 @@ export function PlannedEntryDetailScreen({
           </View>
         )}
 
+        {/* Desfazer fica logo abaixo da ação, enquanto a decisão é recente.
+            Some ao sair da tela: passado esse momento, o caminho é reabrir a
+            conta pela lista, não um botão pendurado para sempre. */}
+        {undo === null ? null : (
+          <View style={{ marginTop: spacing.md }}>
+            <Banner
+              kind="warning"
+              testID="banner-desfazer"
+              message={
+                undo.canceladas === 1 ? 'Conta cancelada.' : `${undo.canceladas} contas canceladas.`
+              }
+              actionLabel="Desfazer"
+              onRetry={handleUndo}
+            />
+          </View>
+        )}
+
+        {active && canOperate && entry.outstandingMinor > 0 ? (
+          <View style={{ marginTop: spacing.md }}>
+            <Button
+              testID="abrir-compensacao"
+              label="Abater com lançamentos"
+              variant="secondary"
+              onPress={() => setOffsetOpen(true)}
+            />
+          </View>
+        ) : null}
+
         {active && canOperate ? (
           <>
             {/* O bloco CANCELAR é um card só, como no screenshot. */}
@@ -356,6 +413,22 @@ export function PlannedEntryDetailScreen({
                 <Text variant="label" tone="secondary">
                   Cancelar
                 </Text>
+                {/* O alcance só aparece quando existe série para alcançar:
+                    numa conta avulsa a escolha seria falsa. */}
+                {entry.recurrenceRuleId === null && entry.installmentGroupId === null ? null : (
+                  <View style={{ marginTop: spacing.sm }}>
+                    <SegmentedControl
+                      testID="alcance-cancelamento"
+                      options={[
+                        { value: 'ONLY_THIS', label: 'Só esta' },
+                        { value: 'THIS_AND_FUTURE', label: 'Esta e as próximas' },
+                      ]}
+                      value={cancelScope}
+                      onChange={setCancelScope}
+                    />
+                  </View>
+                )}
+
                 <View style={{ marginTop: spacing.sm }}>
                   <Field
                     label="Motivo · obrigatório"
@@ -388,6 +461,16 @@ export function PlannedEntryDetailScreen({
           </>
         ) : null}
       </ScrollView>
+
+      <OffsetSettleSheet
+        visible={offsetOpen}
+        entry={entry}
+        onClose={() => setOffsetOpen(false)}
+        onSettled={(atualizada) => {
+          setEntry(atualizada);
+          void load();
+        }}
+      />
     </View>
   );
 }

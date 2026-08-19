@@ -8,6 +8,7 @@ import {
   cancelPlannedEntryRequestSchema,
   reverseSettlementRequestSchema,
   settlePlannedEntryRequestSchema,
+  offsetSettlePlannedEntryRequestSchema,
   createAttachmentRequestSchema,
   createPlannedEntryRequestSchema,
   plannedEntryNatureSchema,
@@ -25,6 +26,11 @@ function contextOf(request: FastifyRequest): RequestContext {
 
 const householdParams = z.object({ householdId: uuidSchema });
 const entryParams = householdParams.extend({ entryId: uuidSchema });
+
+const batchParams = z.object({
+  householdId: uuidSchema,
+  batchId: uuidSchema,
+});
 
 export async function registerPlanningRoutes(
   app: FastifyInstance,
@@ -84,6 +90,56 @@ export async function registerPlanningRoutes(
       return reply.send(
         await planning.cancel(user.id, householdId, entryId, input, contextOf(request)),
       );
+    },
+  );
+
+  /**
+   * Desfazer um cancelamento. A rota é por LOTE, não por conta: cancelar "esta
+   * e as próximas" mexe em várias, e desfazer tem de devolver exatamente as
+   * mesmas — nem a mais, nem a menos.
+   */
+  app.post(
+    '/households/:householdId/planned-entries/cancellations/:batchId/undo',
+    auth,
+    async (request, reply) => {
+      const user = requireUser(request);
+      const { householdId, batchId } = batchParams.parse(request.params);
+      return reply.send(
+        await planning.undoCancellation(user.id, householdId, batchId, contextOf(request)),
+      );
+    },
+  );
+
+  /** Movimentações que podem compensar esta conta prevista. */
+  app.get(
+    '/households/:householdId/planned-entries/:entryId/offset-candidates',
+    auth,
+    async (request, reply) => {
+      const user = requireUser(request);
+      const { householdId, entryId } = entryParams.parse(request.params);
+      return reply.send(await settlements.listOffsetCandidates(user.id, householdId, entryId));
+    },
+  );
+
+  /** Baixa por compensação: abate com movimentações que já existem. */
+  app.post(
+    '/households/:householdId/planned-entries/:entryId/offset-settlements',
+    auth,
+    async (request, reply) => {
+      const user = requireUser(request);
+      const { householdId, entryId } = entryParams.parse(request.params);
+      const input = offsetSettlePlannedEntryRequestSchema.parse(request.body);
+      return reply
+        .status(201)
+        .send(
+          await settlements.settleWithOffset(
+            user.id,
+            householdId,
+            entryId,
+            input,
+            contextOf(request),
+          ),
+        );
     },
   );
 

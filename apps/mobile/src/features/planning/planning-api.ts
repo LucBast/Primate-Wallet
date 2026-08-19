@@ -5,11 +5,20 @@
 import {
   attachmentSchema,
   attachmentUploadTicketSchema,
+  cancelPlannedEntryResponseSchema,
+  offsetCandidateListSchema,
+  offsetSettleResponseSchema,
   plannedEntrySchema,
   planningListSchema,
+  undoCancellationResponseSchema,
   type Attachment,
   type AttachmentUploadTicket,
   type CancelPlannedEntryRequest,
+  type CancelPlannedEntryResponse,
+  type OffsetCandidate,
+  type OffsetSettlePlannedEntryRequest,
+  type OffsetSettleResponse,
+  type UndoCancellationResponse,
   type CreateAttachmentRequest,
   type CreatePlannedEntryRequest,
   type PlannedEntry,
@@ -81,9 +90,57 @@ export async function cancelPlannedEntry(
   householdId: string,
   entryId: string,
   input: CancelPlannedEntryRequest,
-): Promise<PlannedEntry> {
-  return plannedEntrySchema.parse(
+): Promise<CancelPlannedEntryResponse> {
+  return cancelPlannedEntryResponseSchema.parse(
     await request(`/households/${householdId}/planned-entries/${entryId}/cancel`, {
+      method: 'POST',
+      body: input,
+      accessToken,
+    }),
+  );
+}
+
+/**
+ * Desfaz um cancelamento inteiro, pelo lote.
+ *
+ * Por LOTE e não por conta: cancelar "esta e as próximas" mexe em várias, e
+ * desfazer tem de devolver exatamente as mesmas.
+ */
+export async function undoCancellation(
+  accessToken: string,
+  householdId: string,
+  batchId: string,
+): Promise<UndoCancellationResponse> {
+  return undoCancellationResponseSchema.parse(
+    await request(`/households/${householdId}/planned-entries/cancellations/${batchId}/undo`, {
+      method: 'POST',
+      accessToken,
+    }),
+  );
+}
+
+/** Movimentações já lançadas que podem abater esta conta prevista. */
+export async function listOffsetCandidates(
+  accessToken: string,
+  householdId: string,
+  entryId: string,
+): Promise<OffsetCandidate[]> {
+  return offsetCandidateListSchema.parse(
+    await request(`/households/${householdId}/planned-entries/${entryId}/offset-candidates`, {
+      accessToken,
+    }),
+  ).items;
+}
+
+/** Baixa por compensação: abate com movimentações que já existem. */
+export async function settleWithOffset(
+  accessToken: string,
+  householdId: string,
+  entryId: string,
+  input: OffsetSettlePlannedEntryRequest,
+): Promise<OffsetSettleResponse> {
+  return offsetSettleResponseSchema.parse(
+    await request(`/households/${householdId}/planned-entries/${entryId}/offset-settlements`, {
       method: 'POST',
       body: input,
       accessToken,
