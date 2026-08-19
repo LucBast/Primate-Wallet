@@ -672,6 +672,56 @@ aviso` falhou duas vezes seguidas e passou nas seguintes, com e sem as mudanças
 acima — bisect confirmou que não é regressão. Depende de data/hora do ciclo e
 merece investigação própria.
 
+### Criar conta dava 500 em produção — 2026-08-19
+
+Achado ao testar no aparelho. `POST /accounts` inseria a linha, o `SELECT` de
+volta não achava nada, e a transação inteira desfazia. Nenhuma conta chegou a
+existir.
+
+As políticas chamam funções `SECURITY DEFINER` que precisam LER a tabela
+protegida para decidir. Com `FORCE ROW LEVEL SECURITY`, a dona (`ff_migrator`)
+também ficava sujeita às políticas, e só existe política `TO ff_app`: a leitura
+interna voltava vazia e `can_view_account` negava acesso a todo mundo —
+inclusive ao Proprietário. Migração `0021` tira o `FORCE`.
+
+**A suíte inteira estava verde, e não por descuido.** O `ff_migrator` do docker é
+o `POSTGRES_USER` do contêiner, logo superusuário com `BYPASSRLS`; o do Supabase
+é papel comum. O mesmo código se comporta ao contrário nos dois. Enquanto essa
+divergência existir, a suíte **não consegue** provar comportamento de RLS —
+`tests/schema-invariants.test.ts` cobre só a reincidência do `FORCE`, olhando o
+catálogo. Fica como dívida aberta.
+
+### Contraste dos campos — 2026-08-19
+
+Relato de uso: campos difíceis de enxergar de perto. Medido: o texto está bem
+(17,2:1 e 5,6:1); o que sumia era o contorno, a 1,23:1 no claro e 1,32:1 no
+escuro — quatro vezes abaixo do mínimo de 3:1 da WCAG 1.4.11 para componente de
+interface. Token novo `borderStrong`, sólido, em campo, seletor, chip, botão
+secundário e seletor de mês (D-098).
+
+### Contas previstas: cancelar em série, desfazer e compensar — 2026-08-19
+
+Migração `0022`. Cancelar ganhou alcance ("só esta" / "esta e as próximas", com a
+regra de recorrência desligada junto), desfazer passou a existir por lote, e a
+baixa por compensação resolve "fiz consertos que eram do proprietário e ele
+mandou abater do aluguel" sem contar a despesa duas vezes (D-099 a D-107).
+
+**O que ficou faltando na recorrência**, e não foi pedido ainda:
+
+- "recorrente até eu cancelar": o contrato aceita (basta omitir o fim), a tela só
+  oferece 6/12/24 vezes;
+- frequência travada em mensal — semanal e anual existem no banco e no contrato,
+  não na tela.
+
+### Deploy — 2026-08-19
+
+`docs/DEPLOY_PRODUCAO.md` virou o roteiro canônico, no padrão do PlugVendas;
+`docs/26-DEPLOY.md` ficou como caderno de justificativas. Artifact Registry passou
+a reter 2 imagens (D-108): em um dia o repositório foi de 0 a 121 MB. O preço é
+rollback de uma revisão só.
+
+Revisão `primatewallet-api-00005-gzr`, APK `primatewallet-1.1.0-build4.apk`.
+
 ### Bloqueios de responsabilidade humana
 
 Nenhum destes sai por código, e todos estão registrados também em
